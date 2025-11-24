@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, LayoutDashboard, Briefcase, Users, Settings, Activity as ActivityIcon, Building2, FileText, UserPlus } from 'lucide-react';
+import { LogOut, LayoutDashboard, Briefcase, Users, Settings, Activity as ActivityIcon, Building2, FileText, UserPlus, Database } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
 export const Layout = ({ children }: { children?: React.ReactNode }) => {
@@ -42,6 +43,11 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     // Accountant View (Req 10, 12)
     if (['admin', 'accountant'].includes(user.role)) {
         items.push({ label: 'Facturación / Pagos', icon: <FileText size={20} />, path: '/billing' });
+    }
+
+    // Masters Management (New Table)
+    if (['admin'].includes(user.role)) {
+        items.push({ label: 'Config. / Maestros', icon: <Database size={20} />, path: '/masters' });
     }
 
     return items;

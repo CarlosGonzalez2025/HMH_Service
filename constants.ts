@@ -1,3 +1,4 @@
+
 import { Tenant, TenantStatus, User, Client, Activity, ActivityStatus, Invoice } from './types';
 
 // 1. TENANTS
@@ -102,7 +103,10 @@ export const MOCK_ACTIVITIES: Activity[] = [
     requestDate: '2023-10-01', 
     status: ActivityStatus.InExecution,
     assignedProviderId: 'U4',
-    progress: 50
+    progress: 50,
+    unit: 'Hora',
+    quantity: 10,
+    value: 500000
   },
   { 
     id: 'A2', 
@@ -112,7 +116,10 @@ export const MOCK_ACTIVITIES: Activity[] = [
     priority: 'medium',
     requestDate: '2023-10-05', 
     status: ActivityStatus.PendingAssignment,
-    progress: 0
+    progress: 0,
+    unit: 'Sesión',
+    quantity: 1,
+    value: 1200000
   },
   { 
     id: 'A3', 
@@ -125,7 +132,10 @@ export const MOCK_ACTIVITIES: Activity[] = [
     assignedProviderId: 'U4', 
     progress: 100,
     supports: [{ name: 'Informe.pdf', url: '#', date: '2023-10-12' }],
-    serviceOrderId: 'OS-001'
+    serviceOrderId: 'OS-001',
+    unit: 'Unidad',
+    quantity: 20,
+    value: 200000
   }
 ];
 

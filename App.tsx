@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -8,6 +9,7 @@ import { TenantDashboard } from './pages/TenantDashboard';
 import { OrderManagement } from './pages/OrderManagement';
 import { TeamManagement } from './pages/TeamManagement';
 import { ClientManagement } from './pages/ClientManagement';
+import { MastersManagement } from './pages/MastersManagement';
 import { UserRole } from './types';
 
 const PrivateRoute = ({ children }: { children?: React.ReactNode }) => {
@@ -38,6 +40,7 @@ const AppContent = () => {
                 <Route path="/clients" element={<ClientManagement />} />
                 <Route path="/tenants" element={<SuperAdminDashboard />} />
                 <Route path="/team" element={<TeamManagement />} />
+                <Route path="/masters" element={<MastersManagement />} />
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
