@@ -1,0 +1,5 @@
+{
+  "name": "SaaS HMH Enterprise",
+  "description": "Multi-tenant Health & Safety Consulting Management Platform with Role-Based Access Control and strict data isolation.",
+  "requestFramePermissions": []
+}
