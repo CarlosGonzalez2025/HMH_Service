@@ -349,19 +349,30 @@ export const updateActivityStatus = async (
     }
     if (status === ActivityStatus.Finalized) {
         updateData.progress = 100;
-        if(logData.supports) updateData.supports = logData.supports;
+    }
+
+    // Handle Supports Accumulation
+    if(logData.supports && logData.supports.length > 0) {
+        const docSnap = await getDoc(ref);
+        if (docSnap.exists()) {
+             const currentSupports = docSnap.data().supports || [];
+             updateData.supports = [...currentSupports, ...logData.supports];
+        } else {
+             updateData.supports = logData.supports;
+        }
     }
     
     await updateDoc(ref, updateData);
 
-    // Create Log Entry (Bitacora)
+    // Create Log Entry (Bitacora) with supports history
     await createActivityLog(activityId, {
         date: new Date().toISOString(),
         status: status,
         executedUnits: logData.executedUnits,
         comment: logData.comment,
         userId: logData.userId,
-        userName: logData.userName
+        userName: logData.userName,
+        supports: logData.supports // Keep history of what was uploaded at this step
     });
 }
 
@@ -639,5 +650,6 @@ export const getPlanLimits = (plan: PlanType) => {
         case 'basic': return { users: 5, storage: '5GB', price: 500000 };
         case 'intermediate': return { users: 15, storage: '50GB', price: 1500000 };
         case 'enterprise': return { users: 9999, storage: 'Unlimited', price: 3000000 };
+        default: return { users: 5, storage: '5GB', price: 500000 };
     }
 }

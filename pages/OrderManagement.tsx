@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getActivities, createActivity, getClients, getTenantUsers, assignActivity, updateActivityStatus, createActivityApproval, requestBilling, fileAccountReceivable, processPayment, getSubClients, getActivityTypes, getActivityLogs } from '../services/dataService';
-import { Plus, Search, Filter, ChevronRight, Loader2, UserPlus, CheckCircle, Upload, FileText, DollarSign, XCircle, MapPin, ClipboardList, Clock } from 'lucide-react';
+import { Plus, Search, Filter, ChevronRight, Loader2, UserPlus, CheckCircle, Upload, FileText, DollarSign, XCircle, MapPin, ClipboardList, Clock, Trash2 } from 'lucide-react';
 import { Activity, Client, User, ActivityStatus, SubClient, ActivityTypeDefinition, ActivityLog } from '../types';
 
 export const OrderManagement = () => {
@@ -34,6 +34,9 @@ export const OrderManagement = () => {
 
   // Execution Data Form (For Bitacora)
   const [execFormData, setExecFormData] = useState({ executedUnits: 0, comment: '' });
+  const [modalFiles, setModalFiles] = useState<{name: string, url: string}[]>([]); // NEW: File State
+  const [newFileName, setNewFileName] = useState('');
+
   const [approvalComment, setApprovalComment] = useState(''); // For Approval
 
   // New Request Form
@@ -91,6 +94,21 @@ export const OrderManagement = () => {
       setCurrentLogs(logs);
   }
 
+  // File Helper
+  const handleAddFile = () => {
+      if(!newFileName) return;
+      // Simulate URL creation
+      const mockUrl = `https://fake-storage.com/${Date.now()}_${newFileName.replace(/\s/g, '_')}`;
+      setModalFiles([...modalFiles, { name: newFileName, url: mockUrl }]);
+      setNewFileName('');
+  }
+
+  const handleRemoveFile = (index: number) => {
+      const newFiles = [...modalFiles];
+      newFiles.splice(index, 1);
+      setModalFiles(newFiles);
+  }
+
   // --- ACTIONS HANDLERS ---
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -132,27 +150,28 @@ export const OrderManagement = () => {
           executedUnits: Number(execFormData.executedUnits),
           comment: execFormData.comment || 'Inicio de ejecución',
           userId: user.id,
-          userName: user.name
+          userName: user.name,
+          supports: modalFiles.length > 0 ? modalFiles.map(f => ({...f, date: new Date().toISOString()})) : undefined
       });
       setExecuteModal(null);
       setExecFormData({ executedUnits: 0, comment: '' });
+      setModalFiles([]);
       loadData();
   }
 
   const handleFinalize = async () => {
       if(!supportModal || !user) return;
-      // Mock Support Upload
-      const mockSupport = [{ name: 'Acta_Final.pdf', url: '#', date: new Date().toISOString() }];
       
       await updateActivityStatus(supportModal, ActivityStatus.Finalized, {
           executedUnits: Number(execFormData.executedUnits),
           comment: execFormData.comment || 'Finalización de actividad',
           userId: user.id,
           userName: user.name,
-          supports: mockSupport
+          supports: modalFiles.length > 0 ? modalFiles.map(f => ({...f, date: new Date().toISOString()})) : undefined
       });
       setSupportModal(null);
       setExecFormData({ executedUnits: 0, comment: '' });
+      setModalFiles([]);
       loadData();
   }
 
@@ -284,7 +303,7 @@ export const OrderManagement = () => {
                         <td className="px-6 py-4">
                             {getStatusBadge(act.status)}
                             <button onClick={() => handleOpenLogs(act.id)} className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-600 mt-2">
-                                <ClipboardList size={12}/> Bitácora
+                                <ClipboardList size={12}/> Bitácora {act.supports && <span className="bg-slate-200 px-1 rounded-full text-[10px]">{act.supports.length}</span>}
                             </button>
                         </td>
                         <td className="px-6 py-4 text-right">
@@ -298,12 +317,12 @@ export const OrderManagement = () => {
 
                                 {/* ACTION: EXECUTE/FINALIZE (Provider) */}
                                 {['assigned', 'in_execution'].includes(act.status) && user.role === 'provider' && act.assignedProviderId === user.id && (
-                                    <button onClick={() => setExecuteModal(act.id)} className="px-3 py-1 bg-amber-50 text-amber-600 rounded border border-amber-200 hover:bg-amber-100">
-                                        Iniciar
+                                    <button onClick={() => { setExecuteModal(act.id); setModalFiles([]); }} className="px-3 py-1 bg-amber-50 text-amber-600 rounded border border-amber-200 hover:bg-amber-100">
+                                        Iniciar / Reportar
                                     </button>
                                 )}
                                 {act.status === ActivityStatus.InExecution && user.role === 'provider' && act.assignedProviderId === user.id && (
-                                    <button onClick={() => setSupportModal(act.id)} className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded border border-indigo-200 hover:bg-indigo-100 flex items-center gap-1">
+                                    <button onClick={() => { setSupportModal(act.id); setModalFiles([]); }} className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded border border-indigo-200 hover:bg-indigo-100 flex items-center gap-1">
                                         <Upload size={14}/> Finalizar
                                     </button>
                                 )}
@@ -414,11 +433,11 @@ export const OrderManagement = () => {
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-600 mb-1">Cantidad *</label>
-                            <input required type="number" min="1" className="w-full border p-2 rounded text-sm" onChange={e => setFormData({...formData, quantity: e.target.value})} value={formData.quantity}/>
+                            <input required type="number" min="1" className="w-full border p-2 rounded text-sm" onChange={e => setFormData({...formData, quantity: parseInt(e.target.value) || 0})} value={formData.quantity}/>
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-600 mb-1">Valor Total (COP)</label>
-                            <input type="number" className="w-full border p-2 rounded text-sm" onChange={e => setFormData({...formData, value: e.target.value})} value={formData.value}/>
+                            <input type="number" className="w-full border p-2 rounded text-sm" onChange={e => setFormData({...formData, value: parseFloat(e.target.value) || 0})} value={formData.value}/>
                         </div>
                     </div>
 
@@ -481,20 +500,37 @@ export const OrderManagement = () => {
       {executeModal && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
              <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm">
-                 <h3 className="font-bold mb-4">Iniciar Ejecución</h3>
+                 <h3 className="font-bold mb-4 text-amber-600">Iniciar / Reportar Ejecución</h3>
                  <div className="space-y-4 mb-6">
                     <div>
                         <label className="block text-xs font-bold text-slate-600 mb-1">Unidades Ejecutadas</label>
                         <input type="number" min="0" className="w-full border p-2 rounded text-sm" value={execFormData.executedUnits} onChange={e => setExecFormData({...execFormData, executedUnits: Number(e.target.value)})}/>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-600 mb-1">Comentario</label>
+                        <label className="block text-xs font-bold text-slate-600 mb-1">Comentario / Reporte</label>
                         <textarea className="w-full border p-2 rounded text-sm h-20" placeholder="Observaciones iniciales..." value={execFormData.comment} onChange={e => setExecFormData({...execFormData, comment: e.target.value})}/>
+                    </div>
+                    
+                    {/* FILE UPLOAD SIMULATION */}
+                    <div className="bg-slate-50 p-3 rounded border border-dashed">
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Cargar Soporte (Acta Inicio, etc)</label>
+                        <div className="flex gap-2 mb-2">
+                            <input className="w-full border p-1 text-xs rounded" placeholder="Nombre archivo" value={newFileName} onChange={e => setNewFileName(e.target.value)}/>
+                            <button onClick={handleAddFile} className="bg-slate-200 px-2 rounded text-xs font-bold hover:bg-slate-300">+</button>
+                        </div>
+                        <ul className="space-y-1">
+                            {modalFiles.map((f, i) => (
+                                <li key={i} className="text-xs flex justify-between bg-white p-1 rounded border">
+                                    <span className="truncate max-w-[150px]">{f.name}</span>
+                                    <button onClick={() => handleRemoveFile(i)} className="text-red-500"><Trash2 size={10}/></button>
+                                </li>
+                            ))}
+                        </ul>
                     </div>
                  </div>
                  <div className="flex justify-end gap-2">
-                     <button onClick={() => setExecuteModal(null)} className="px-4 py-2 text-slate-600">Cancelar</button>
-                     <button onClick={handleStartExecution} className="px-4 py-2 bg-amber-600 text-white rounded">Iniciar</button>
+                     <button onClick={() => setExecuteModal(null)} className="px-4 py-2 text-slate-600 text-sm">Cancelar</button>
+                     <button onClick={handleStartExecution} className="px-4 py-2 bg-amber-600 text-white rounded text-sm font-medium">Registrar Avance</button>
                  </div>
              </div>
           </div>
@@ -505,26 +541,40 @@ export const OrderManagement = () => {
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm text-center">
                   <Upload className="mx-auto text-blue-500 mb-4" size={48}/>
-                  <h3 className="font-bold mb-2">Finalizar Actividad</h3>
-                  <p className="text-sm text-slate-500 mb-4">Ingrese los datos de ejecución y cargue soportes.</p>
+                  <h3 className="font-bold mb-2 text-indigo-700">Finalizar Actividad</h3>
+                  <p className="text-sm text-slate-500 mb-4">Ingrese los datos finales y cargue los entregables.</p>
                   
                   <div className="text-left space-y-4 mb-6">
                       <div>
-                        <label className="block text-xs font-bold text-slate-600 mb-1">Unidades Ejecutadas</label>
+                        <label className="block text-xs font-bold text-slate-600 mb-1">Unidades Ejecutadas Totales</label>
                         <input type="number" min="0" className="w-full border p-2 rounded text-sm" value={execFormData.executedUnits} onChange={e => setExecFormData({...execFormData, executedUnits: Number(e.target.value)})}/>
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-600 mb-1">Comentarios Finales</label>
                         <textarea className="w-full border p-2 rounded text-sm h-20" value={execFormData.comment} onChange={e => setExecFormData({...execFormData, comment: e.target.value})}/>
                       </div>
+
+                      {/* FILE UPLOAD SIMULATION */}
+                      <div className="bg-slate-50 p-3 rounded border border-dashed">
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Cargar Entregables</label>
+                        <div className="flex gap-2 mb-2">
+                            <input className="w-full border p-1 text-xs rounded" placeholder="Nombre archivo" value={newFileName} onChange={e => setNewFileName(e.target.value)}/>
+                            <button onClick={handleAddFile} className="bg-slate-200 px-2 rounded text-xs font-bold hover:bg-slate-300">+</button>
+                        </div>
+                        <ul className="space-y-1">
+                            {modalFiles.map((f, i) => (
+                                <li key={i} className="text-xs flex justify-between bg-white p-1 rounded border">
+                                    <span className="truncate max-w-[150px]">{f.name}</span>
+                                    <button onClick={() => handleRemoveFile(i)} className="text-red-500"><Trash2 size={10}/></button>
+                                </li>
+                            ))}
+                        </ul>
+                      </div>
                   </div>
 
-                  <div className="border-2 border-dashed border-slate-300 rounded p-4 mb-4 bg-slate-50">
-                      <p className="text-xs text-slate-400">Simulación: El archivo "Acta_Final.pdf" se adjuntará.</p>
-                  </div>
                   <div className="flex justify-end gap-2">
-                      <button onClick={() => setSupportModal(null)} className="px-4 py-2 text-slate-600">Cancelar</button>
-                      <button onClick={handleFinalize} className="px-4 py-2 bg-green-600 text-white rounded">Finalizar</button>
+                      <button onClick={() => setSupportModal(null)} className="px-4 py-2 text-slate-600 text-sm">Cancelar</button>
+                      <button onClick={handleFinalize} className="px-4 py-2 bg-indigo-600 text-white rounded text-sm font-bold hover:bg-indigo-700 shadow-md">Finalizar</button>
                   </div>
               </div>
           </div>
@@ -594,6 +644,18 @@ export const OrderManagement = () => {
                                       <span><b>Usuario:</b> {log.userName || 'Sistema'}</span>
                                       <span><b>Unid. Ejec:</b> {log.executedUnits}</span>
                                   </div>
+                                  {log.supports && log.supports.length > 0 && (
+                                      <div className="mt-2 bg-slate-50 p-2 rounded border border-slate-100">
+                                          <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Soportes Adjuntos:</p>
+                                          <ul className="space-y-1">
+                                              {log.supports.map((s, i) => (
+                                                  <li key={i} className="text-xs text-blue-600 flex items-center gap-1">
+                                                      <FileText size={10}/> <a href={s.url} target="_blank" rel="noopener noreferrer" className="hover:underline">{s.name}</a>
+                                                  </li>
+                                              ))}
+                                          </ul>
+                                      </div>
+                                  )}
                               </div>
                           ))}
                       </div>

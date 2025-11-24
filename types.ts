@@ -201,6 +201,7 @@ export interface ActivityLog {
     status: ActivityStatus; // ESTADO
     executedUnits: number; // UNID EJECUTADAS
     comment: string; // COMENTARIO
+    supports?: { url: string; name: string; date: string }[]; // SOPORTES
     
     // Audit
     userId?: string; 

@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { getActivities, getClients } from '../services/dataService';
 import { Briefcase, AlertCircle, CheckCircle, Clock, RefreshCw } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { Activity, Client } from '../types';
+import { Activity, Client, ActivityStatus } from '../types';
 
 export const TenantDashboard = () => {
   const { user } = useAuth();
@@ -31,9 +31,9 @@ export const TenantDashboard = () => {
   const stats = useMemo(() => {
     return {
       total: activities.length,
-      pending: activities.filter(a => a.status === 'requested').length,
-      progress: activities.filter(a => a.status === 'in_progress').length,
-      completed: activities.filter(a => a.status === 'completed' || a.status === 'approved').length
+      pending: activities.filter(a => a.status === ActivityStatus.PendingAssignment).length,
+      progress: activities.filter(a => [ActivityStatus.Assigned, ActivityStatus.InContact, ActivityStatus.InExecution].includes(a.status)).length,
+      completed: activities.filter(a => [ActivityStatus.Finalized, ActivityStatus.Approved, ActivityStatus.BillingRequested, ActivityStatus.AccountReceivableFiled, ActivityStatus.Paid].includes(a.status)).length
     };
   }, [activities]);
 
