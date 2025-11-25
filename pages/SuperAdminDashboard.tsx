@@ -2,15 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { getTenants, updateTenant, createTenant, getGlobalUsers, toggleUserBlock, getInvoices, getPlanLimits } from '../services/dataService';
-import { 
-    Building, DollarSign, Users, Activity, Settings, 
-    AlertTriangle, CheckCircle, XCircle, Search, 
+import { getTenants, updateTenant, createTenant, getGlobalUsers, toggleUserBlock, getInvoices, getPlanLimits, registerUserForTenant } from '../services/dataService';
+import {
+    Building, DollarSign, Users, Activity, Settings,
+    AlertTriangle, CheckCircle, XCircle, Search,
     MoreVertical, Plus, FileText, Lock, Unlock,
-    TrendingUp, Shield
+    TrendingUp, Shield, UserPlus
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { Tenant, User, Invoice, PlanType } from '../types';
+import { Tenant, User, Invoice, PlanType, UserRole } from '../types';
 
 export const SuperAdminDashboard = () => {
   const { user } = useAuth();
@@ -25,11 +25,17 @@ export const SuperAdminDashboard = () => {
 
   // Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
 
   // Create Form State
   const [newTenant, setNewTenant] = useState({
       name: '', taxId: '', email: '', adminName: '', plan: 'basic' as PlanType
+  });
+
+  // Create User Form State
+  const [newGlobalUser, setNewGlobalUser] = useState({
+      name: '', email: '', password: '', role: 'admin' as UserRole, tenantId: ''
   });
 
   const loadAllData = async () => {
@@ -87,6 +93,34 @@ export const SuperAdminDashboard = () => {
       await toggleUserBlock(u.id, u.status);
       showToast(`Usuario ${u.status === 'blocked' ? 'desbloqueado' : 'bloqueado'}`, "info");
       loadAllData();
+  };
+
+  const handleCreateGlobalUser = async (e: React.FormEvent) => {
+      e.preventDefault();
+
+      // Determine tenantId: empty string for superAdmin, otherwise use selected tenant
+      const targetTenantId = newGlobalUser.role === 'superAdmin' ? '' : newGlobalUser.tenantId;
+
+      if (newGlobalUser.role !== 'superAdmin' && !targetTenantId) {
+          showToast("Debe seleccionar un tenant para roles que no sean SuperAdmin", "error");
+          return;
+      }
+
+      const success = await registerUserForTenant({
+          name: newGlobalUser.name,
+          email: newGlobalUser.email,
+          password: newGlobalUser.password || '123456',
+          role: newGlobalUser.role
+      }, targetTenantId);
+
+      if(success) {
+          showToast("Usuario creado exitosamente", "success");
+          setIsCreateUserModalOpen(false);
+          setNewGlobalUser({ name: '', email: '', password: '', role: 'admin', tenantId: '' });
+          loadAllData();
+      } else {
+          showToast("Error al crear usuario. El email podría estar en uso.", "error");
+      }
   };
 
   // --- SUB-COMPONENTS ---
@@ -257,9 +291,17 @@ export const SuperAdminDashboard = () => {
 
   const renderUsers = () => (
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-4 border-b border-slate-200">
-              <h3 className="font-bold text-slate-700">Usuarios Globales</h3>
-              <p className="text-xs text-slate-500">Gestión centralizada de accesos de todos los tenants</p>
+          <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <div>
+                  <h3 className="font-bold text-slate-700">Usuarios Globales</h3>
+                  <p className="text-xs text-slate-500">Gestión centralizada de accesos de todos los tenants</p>
+              </div>
+              <button
+                  onClick={() => setIsCreateUserModalOpen(true)}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-green-700 shadow-sm"
+              >
+                  <UserPlus size={16}/> Nuevo Usuario
+              </button>
           </div>
           <table className="w-full text-sm text-left">
               <thead className="text-xs text-slate-500 uppercase bg-slate-50">
@@ -451,6 +493,89 @@ export const SuperAdminDashboard = () => {
                       <div className="flex justify-end gap-2 mt-6">
                           <button type="button" onClick={() => setIsCreateModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded text-sm font-medium">Cancelar</button>
                           <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 shadow-lg shadow-blue-200">Crear Empresa</button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+      )}
+
+      {/* Create User Modal */}
+      {isCreateUserModalOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+                  <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><UserPlus size={20}/> Crear Nuevo Usuario</h3>
+                      <button onClick={() => setIsCreateUserModalOpen(false)} className="text-slate-400 hover:text-slate-600"><XCircle/></button>
+                  </div>
+                  <form onSubmit={handleCreateGlobalUser} className="space-y-4">
+                      <div>
+                          <label className="block text-xs font-bold text-slate-600 mb-1">Nombre Completo</label>
+                          <input
+                              required
+                              type="text"
+                              className="w-full border rounded p-2 text-sm"
+                              value={newGlobalUser.name}
+                              onChange={e => setNewGlobalUser({...newGlobalUser, name: e.target.value})}
+                              placeholder="Nombre del usuario"
+                          />
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold text-slate-600 mb-1">Email</label>
+                          <input
+                              required
+                              type="email"
+                              className="w-full border rounded p-2 text-sm"
+                              value={newGlobalUser.email}
+                              onChange={e => setNewGlobalUser({...newGlobalUser, email: e.target.value})}
+                              placeholder="usuario@empresa.com"
+                          />
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold text-slate-600 mb-1">Contraseña Inicial</label>
+                          <input
+                              type="password"
+                              className="w-full border rounded p-2 text-sm"
+                              value={newGlobalUser.password}
+                              onChange={e => setNewGlobalUser({...newGlobalUser, password: e.target.value})}
+                              placeholder="Dejar vacío para usar '123456'"
+                          />
+                          <p className="text-xs text-slate-400 mt-1">Si se deja vacío, la contraseña será: 123456</p>
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold text-slate-600 mb-1">Rol</label>
+                          <select
+                              className="w-full border rounded p-2 text-sm bg-white"
+                              value={newGlobalUser.role}
+                              onChange={e => setNewGlobalUser({...newGlobalUser, role: e.target.value as UserRole})}
+                          >
+                              <option value="superAdmin">SuperAdmin (Acceso Global)</option>
+                              <option value="admin">Admin (Administrador de Tenant)</option>
+                              <option value="coordinator">Coordinador</option>
+                              <option value="analyst">Analista de Operaciones</option>
+                              <option value="accountant">Contador</option>
+                              <option value="provider">Proveedor / Consultor</option>
+                          </select>
+                      </div>
+                      {newGlobalUser.role !== 'superAdmin' && (
+                          <div className="bg-amber-50 p-3 rounded border border-amber-200">
+                              <label className="block text-xs font-bold text-amber-700 mb-2">Tenant / Empresa</label>
+                              <select
+                                  required
+                                  className="w-full border rounded p-2 text-sm bg-white"
+                                  value={newGlobalUser.tenantId}
+                                  onChange={e => setNewGlobalUser({...newGlobalUser, tenantId: e.target.value})}
+                              >
+                                  <option value="">Seleccionar Empresa...</option>
+                                  {tenants.map(t => (
+                                      <option key={t.id} value={t.id}>{t.name} - {t.taxId}</option>
+                                  ))}
+                              </select>
+                              <p className="text-xs text-amber-600 mt-2">⚠️ Los roles que no son SuperAdmin requieren una empresa asignada</p>
+                          </div>
+                      )}
+                      <div className="flex justify-end gap-2 mt-6">
+                          <button type="button" onClick={() => setIsCreateUserModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded text-sm font-medium">Cancelar</button>
+                          <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 shadow-lg shadow-green-200">Crear Usuario</button>
                       </div>
                   </form>
               </div>
