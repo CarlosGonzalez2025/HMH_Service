@@ -1,0 +1,253 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================================
+    // HELPER FUNCTIONS - Funciones de utilidad para verificar roles y permisos
+    // ============================================================================
+
+    // Verifica si el usuario está autenticado
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Obtiene los datos del usuario actual desde la colección users
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Verifica si el usuario es SuperAdmin
+    function isSuperAdmin() {
+      return isSignedIn() && getUserData().role == 'superAdmin';
+    }
+
+    // Verifica si el usuario pertenece a un tenant específico
+    function belongsToTenant(tenantId) {
+      return isSignedIn() && getUserData().tenantId == tenantId;
+    }
+
+    // Verifica si el usuario tiene uno de los roles especificados
+    function hasRole(roles) {
+      return isSignedIn() && getUserData().role in roles;
+    }
+
+    // Verifica si el usuario es admin o coordinator del tenant
+    function isAdminOrCoordinator(tenantId) {
+      return belongsToTenant(tenantId) && hasRole(['admin', 'coordinator']);
+    }
+
+    // Verifica si el usuario puede gestionar el tenant
+    function canManageTenant(tenantId) {
+      return isSuperAdmin() || isAdminOrCoordinator(tenantId);
+    }
+
+    // ============================================================================
+    // COLECCIÓN: TENANTS
+    // Solo SuperAdmin puede crear/modificar tenants
+    // ============================================================================
+    match /tenants/{tenantId} {
+      // Leer: SuperAdmin o usuarios del tenant
+      allow read: if isSuperAdmin() || belongsToTenant(tenantId);
+
+      // Crear/Actualizar/Eliminar: Solo SuperAdmin
+      allow create, update, delete: if isSuperAdmin();
+
+      // --------------------------------------------------------------------------
+      // SUBCOLECCIÓN: CLIENTS (Clientes)
+      // Admin, Coordinator, Analyst pueden gestionar
+      // --------------------------------------------------------------------------
+      match /clients/{clientId} {
+        allow read: if belongsToTenant(tenantId);
+        allow create, update: if belongsToTenant(tenantId) && hasRole(['admin', 'coordinator', 'analyst']);
+        allow delete: if isAdminOrCoordinator(tenantId);
+
+        // Subclientes
+        match /subclients/{subClientId} {
+          allow read: if belongsToTenant(tenantId);
+          allow write: if belongsToTenant(tenantId) && hasRole(['admin', 'coordinator']);
+
+          // Contactos de subclientes
+          match /contacts/{contactId} {
+            allow read: if belongsToTenant(tenantId);
+            allow write: if belongsToTenant(tenantId) && hasRole(['admin', 'coordinator', 'analyst']);
+          }
+        }
+
+        // Contactos de clientes
+        match /contacts/{contactId} {
+          allow read: if belongsToTenant(tenantId);
+          allow write: if belongsToTenant(tenantId) && hasRole(['admin', 'coordinator', 'analyst']);
+        }
+
+        // Precios de clientes
+        match /prices/{priceId} {
+          allow read: if belongsToTenant(tenantId);
+          allow write: if isAdminOrCoordinator(tenantId);
+        }
+
+        // Tarifas de consultores (rates)
+        match /consultantRates/{rateId} {
+          allow read: if belongsToTenant(tenantId);
+          allow write: if isAdminOrCoordinator(tenantId);
+        }
+      }
+
+      // --------------------------------------------------------------------------
+      // SUBCOLECCIÓN: ACTIVITY STATES (Maestros de estados)
+      // Solo Admin y Coordinator pueden gestionar
+      // --------------------------------------------------------------------------
+      match /activityStates/{stateId} {
+        allow read: if belongsToTenant(tenantId);
+        allow write: if isAdminOrCoordinator(tenantId);
+      }
+
+      // --------------------------------------------------------------------------
+      // SUBCOLECCIÓN: ACTIVITY TYPES (Maestros de tipos de actividad)
+      // Solo Admin y Coordinator pueden gestionar
+      // --------------------------------------------------------------------------
+      match /activityTypes/{typeId} {
+        allow read: if belongsToTenant(tenantId);
+        allow write: if isAdminOrCoordinator(tenantId);
+      }
+
+      // --------------------------------------------------------------------------
+      // SUBCOLECCIÓN: BILLING ACCOUNTS (Cuentas de cobro)
+      // Providers pueden crear sus propias cuentas, Admin/Coordinator/Accountant pueden ver todas
+      // --------------------------------------------------------------------------
+      match /billingAccounts/{accountId} {
+        allow read: if belongsToTenant(tenantId) && (
+          hasRole(['admin', 'coordinator', 'accountant']) ||
+          resource.data.providerId == request.auth.uid
+        );
+        allow create: if belongsToTenant(tenantId) && hasRole(['provider']) &&
+                         request.resource.data.providerId == request.auth.uid;
+        allow update: if belongsToTenant(tenantId) && hasRole(['admin', 'coordinator', 'accountant']);
+      }
+    }
+
+    // ============================================================================
+    // COLECCIÓN: USERS
+    // SuperAdmin puede gestionar todos, Admin/Coordinator pueden gestionar usuarios de su tenant
+    // ============================================================================
+    match /users/{userId} {
+      // Leer: SuperAdmin puede ver todos, usuarios pueden ver su tenant
+      allow read: if isSuperAdmin() ||
+                     (isSignedIn() && resource.data.tenantId == getUserData().tenantId) ||
+                     (isSignedIn() && userId == request.auth.uid);
+
+      // Crear: SuperAdmin o Admin/Coordinator del tenant
+      allow create: if isSuperAdmin() ||
+                       (isSignedIn() && hasRole(['admin', 'coordinator']) &&
+                        request.resource.data.tenantId == getUserData().tenantId);
+
+      // Actualizar: SuperAdmin, Admin/Coordinator del mismo tenant, o el propio usuario (su perfil)
+      allow update: if isSuperAdmin() ||
+                       (belongsToTenant(resource.data.tenantId) && hasRole(['admin', 'coordinator'])) ||
+                       (userId == request.auth.uid &&
+                        request.resource.data.role == resource.data.role &&
+                        request.resource.data.tenantId == resource.data.tenantId);
+
+      // Eliminar: Solo SuperAdmin
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================================================
+    // COLECCIÓN: ACTIVITIES
+    // Acceso basado en rol y tenant
+    // ============================================================================
+    match /activities/{activityId} {
+      // Leer:
+      // - SuperAdmin: todas
+      // - Provider: solo las asignadas a él
+      // - Otros roles del tenant: todas del tenant
+      allow read: if isSuperAdmin() ||
+                     (belongsToTenant(resource.data.tenantId)) ||
+                     (hasRole(['provider']) && resource.data.assignedProviderId == request.auth.uid);
+
+      // Crear: Analyst, Coordinator, Admin del tenant
+      allow create: if belongsToTenant(request.resource.data.tenantId) &&
+                       hasRole(['analyst', 'coordinator', 'admin']);
+
+      // Actualizar:
+      // - Admin/Coordinator del tenant pueden actualizar cualquier campo
+      // - Provider asignado puede actualizar status, progress, supports
+      // - Accountant puede actualizar campos de pago
+      allow update: if (belongsToTenant(resource.data.tenantId) && hasRole(['admin', 'coordinator'])) ||
+                       (hasRole(['provider']) && resource.data.assignedProviderId == request.auth.uid &&
+                        request.resource.data.tenantId == resource.data.tenantId) ||
+                       (belongsToTenant(resource.data.tenantId) && hasRole(['accountant']));
+
+      // Eliminar: Solo Admin/Coordinator
+      allow delete: if isAdminOrCoordinator(resource.data.tenantId);
+
+      // --------------------------------------------------------------------------
+      // SUBCOLECCIÓN: LOGS (Bitácora)
+      // --------------------------------------------------------------------------
+      match /logs/{logId} {
+        allow read: if isSuperAdmin() ||
+                       belongsToTenant(get(/databases/$(database)/documents/activities/$(activityId)).data.tenantId) ||
+                       (hasRole(['provider']) && get(/databases/$(database)/documents/activities/$(activityId)).data.assignedProviderId == request.auth.uid);
+
+        allow create: if isSignedIn() && (
+          belongsToTenant(get(/databases/$(database)/documents/activities/$(activityId)).data.tenantId) ||
+          (hasRole(['provider']) && get(/databases/$(database)/documents/activities/$(activityId)).data.assignedProviderId == request.auth.uid)
+        );
+
+        // Los logs no se pueden modificar ni eliminar (integridad del historial)
+        allow update, delete: if false;
+      }
+
+      // --------------------------------------------------------------------------
+      // SUBCOLECCIÓN: ASSIGNMENTS (Asignaciones)
+      // --------------------------------------------------------------------------
+      match /assignments/{assignmentId} {
+        allow read: if isSuperAdmin() ||
+                       belongsToTenant(get(/databases/$(database)/documents/activities/$(activityId)).data.tenantId) ||
+                       (hasRole(['provider']) && resource.data.providerId == request.auth.uid);
+
+        allow create: if belongsToTenant(get(/databases/$(database)/documents/activities/$(activityId)).data.tenantId) &&
+                         hasRole(['coordinator', 'admin']);
+
+        allow update, delete: if isAdminOrCoordinator(get(/databases/$(database)/documents/activities/$(activityId)).data.tenantId);
+      }
+
+      // --------------------------------------------------------------------------
+      // SUBCOLECCIÓN: APPROVALS (Aprobaciones)
+      // --------------------------------------------------------------------------
+      match /approvals/{approvalId} {
+        allow read: if isSuperAdmin() ||
+                       belongsToTenant(get(/databases/$(database)/documents/activities/$(activityId)).data.tenantId) ||
+                       (hasRole(['provider']) && get(/databases/$(database)/documents/activities/$(activityId)).data.assignedProviderId == request.auth.uid);
+
+        allow create: if belongsToTenant(get(/databases/$(database)/documents/activities/$(activityId)).data.tenantId) &&
+                         hasRole(['coordinator', 'admin']);
+
+        // Las aprobaciones no se pueden modificar ni eliminar (integridad)
+        allow update, delete: if false;
+      }
+    }
+
+    // ============================================================================
+    // COLECCIÓN: SERVICE ORDERS (Órdenes de servicio)
+    // ============================================================================
+    match /serviceOrders/{orderId} {
+      allow read: if isSuperAdmin() ||
+                     (belongsToTenant(resource.data.tenantId));
+
+      allow create: if belongsToTenant(request.resource.data.tenantId) &&
+                       hasRole(['coordinator', 'admin']);
+
+      allow update: if belongsToTenant(resource.data.tenantId) &&
+                       hasRole(['coordinator', 'admin', 'accountant']);
+
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================================================
+    // DENY ALL - Cualquier otra colección no definida explícitamente
+    // ============================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
