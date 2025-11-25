@@ -30,8 +30,21 @@ export const Login = () => {
         {/* Login Form */}
         <div className="bg-white p-8 rounded-2xl shadow-xl flex flex-col justify-center">
           <div className="mb-8 text-center">
-            <div className="w-16 h-16 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-200">
-              <ShieldCheck className="text-white w-8 h-8" />
+            <div className="flex items-center justify-center mx-auto mb-4">
+              <img
+                src="/logo.png"
+                alt="HMH Logo"
+                className="h-20 w-auto object-contain"
+                onError={(e) => {
+                  // Fallback to icon if image not found
+                  e.currentTarget.style.display = 'none';
+                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                  if (fallback) fallback.style.display = 'flex';
+                }}
+              />
+              <div className="w-16 h-16 bg-blue-600 rounded-xl items-center justify-center shadow-lg shadow-blue-200 hidden">
+                <ShieldCheck className="text-white w-8 h-8" />
+              </div>
             </div>
             <h1 className="text-2xl font-bold text-slate-800">SaaS HMH Enterprise</h1>
             <p className="text-slate-500 mt-2">Plataforma de Gestión de Consultoría H&S</p>
