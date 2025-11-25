@@ -199,12 +199,14 @@ export const TeamManagement = () => {
                     <h1 className="text-2xl font-bold text-slate-800">Mi Equipo / Consultores</h1>
                     <p className="text-slate-500 text-sm">Gestiona el personal de {tenant.name}</p>
                 </div>
-                <button 
-                    onClick={openCreateModal}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-lg shadow-blue-200"
-                >
-                    <Plus size={18} /> Nuevo Usuario
-                </button>
+                {['admin', 'coordinator'].includes(user.role) && (
+                    <button
+                        onClick={openCreateModal}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-lg shadow-blue-200"
+                    >
+                        <Plus size={18} /> Nuevo Usuario
+                    </button>
+                )}
             </div>
 
             {/* User List */}
@@ -264,13 +266,15 @@ export const TeamManagement = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end items-center gap-2">
-                                                <button 
-                                                    onClick={(e) => { e.stopPropagation(); handleEditUser(u); }} 
-                                                    className="text-slate-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition-colors"
-                                                    title="Editar Usuario"
-                                                >
-                                                    <Pencil size={16} />
-                                                </button>
+                                                {['admin', 'coordinator'].includes(user.role) && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleEditUser(u); }}
+                                                        className="text-slate-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition-colors"
+                                                        title="Editar Usuario"
+                                                    >
+                                                        <Pencil size={16} />
+                                                    </button>
+                                                )}
                                                 {u.role === 'provider' && (
                                                     <button className="text-slate-400 hover:text-blue-600 transition-colors">
                                                         {expandedUser === u.id ? <ChevronUp size={20}/> : <ChevronDown size={20}/>}
@@ -320,12 +324,14 @@ export const TeamManagement = () => {
                                                     <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
                                                         <div className="flex justify-between items-center mb-4">
                                                             <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><DollarSign size={14}/> Tarifas Negociadas</h4>
-                                                            <button 
-                                                                onClick={(e) => { e.stopPropagation(); setRateModal(u.id); }}
-                                                                className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded font-bold hover:bg-green-100 flex items-center gap-1 border border-green-200"
-                                                            >
-                                                                <Plus size={12}/> Nueva Tarifa
-                                                            </button>
+                                                            {['admin', 'coordinator'].includes(user.role) && (
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); setRateModal(u.id); }}
+                                                                    className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded font-bold hover:bg-green-100 flex items-center gap-1 border border-green-200"
+                                                                >
+                                                                    <Plus size={12}/> Nueva Tarifa
+                                                                </button>
+                                                            )}
                                                         </div>
                                                         
                                                         {expandedRates.length > 0 ? (

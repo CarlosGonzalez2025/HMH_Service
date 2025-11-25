@@ -193,9 +193,11 @@ export const ClientManagement = () => {
                     <h1 className="text-2xl font-bold text-slate-800">Gestión de Clientes</h1>
                     <p className="text-slate-500 text-sm">Base de datos de Clientes y Subclientes</p>
                 </div>
-                <button onClick={() => setShowModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm">
-                    <Plus size={18}/> Nuevo Cliente
-                </button>
+                {['admin', 'coordinator', 'analyst'].includes(user.role) && (
+                    <button onClick={() => setShowModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm">
+                        <Plus size={18}/> Nuevo Cliente
+                    </button>
+                )}
             </div>
 
             <div className="grid gap-4">
@@ -263,9 +265,11 @@ export const ClientManagement = () => {
                                         <div className="lg:col-span-1">
                                             <div className="flex justify-between items-center mb-3">
                                                 <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2"><Building size={16}/> Subclientes</h4>
-                                                <button onClick={(e) => { e.stopPropagation(); setSubModal(client.id); }} className="text-xs text-blue-600 font-medium hover:underline flex items-center gap-1">
-                                                    <Plus size={12}/> Agregar
-                                                </button>
+                                                {['admin', 'coordinator'].includes(user.role) && (
+                                                    <button onClick={(e) => { e.stopPropagation(); setSubModal(client.id); }} className="text-xs text-blue-600 font-medium hover:underline flex items-center gap-1">
+                                                        <Plus size={12}/> Agregar
+                                                    </button>
+                                                )}
                                             </div>
                                             {currentSubclients.length > 0 ? (
                                                 <div className="space-y-2">
@@ -320,9 +324,11 @@ export const ClientManagement = () => {
                                         <div className="lg:col-span-1">
                                             <div className="flex justify-between items-center mb-3">
                                                 <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2"><Users size={16}/> Contactos Principales</h4>
-                                                <button onClick={(e) => { e.stopPropagation(); setContactModal(client.id); }} className="text-xs text-green-600 font-medium hover:underline flex items-center gap-1">
-                                                    <Plus size={12}/> Agregar
-                                                </button>
+                                                {['admin', 'coordinator', 'analyst'].includes(user.role) && (
+                                                    <button onClick={(e) => { e.stopPropagation(); setContactModal(client.id); }} className="text-xs text-green-600 font-medium hover:underline flex items-center gap-1">
+                                                        <Plus size={12}/> Agregar
+                                                    </button>
+                                                )}
                                             </div>
                                             {currentContacts.length > 0 ? (
                                                 <div className="space-y-2">
@@ -360,9 +366,11 @@ export const ClientManagement = () => {
                                         <div className="lg:col-span-1">
                                             <div className="flex justify-between items-center mb-3">
                                                 <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2"><DollarSign size={16}/> Tarifas</h4>
-                                                <button onClick={(e) => { e.stopPropagation(); setPriceModal(client.id); }} className="text-xs text-purple-600 font-medium hover:underline flex items-center gap-1">
-                                                    <Plus size={12}/> Agregar
-                                                </button>
+                                                {['admin', 'coordinator'].includes(user.role) && (
+                                                    <button onClick={(e) => { e.stopPropagation(); setPriceModal(client.id); }} className="text-xs text-purple-600 font-medium hover:underline flex items-center gap-1">
+                                                        <Plus size={12}/> Agregar
+                                                    </button>
+                                                )}
                                             </div>
                                             {currentPrices.length > 0 ? (
                                                 <div className="space-y-2">
