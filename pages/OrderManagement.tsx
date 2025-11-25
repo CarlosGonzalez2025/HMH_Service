@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { getActivities, createActivity, getClients, getTenantUsers, assignActivity, updateActivityStatus, createActivityApproval, requestBilling, fileAccountReceivable, processPayment, getSubClients, getActivityTypes, getActivityLogs } from '../services/dataService';
-import { Plus, Search, Filter, ChevronRight, Loader2, UserPlus, CheckCircle, Upload, FileText, DollarSign, XCircle, MapPin, ClipboardList, Clock, Trash2 } from 'lucide-react';
-import { Activity, Client, User, ActivityStatus, SubClient, ActivityTypeDefinition, ActivityLog } from '../types';
+import { getActivities, createActivity, getClients, getTenantUsers, assignActivity, updateActivityStatus, createActivityApproval, requestBilling, fileAccountReceivable, processPayment, getSubClients, getActivityTypes, getActivityLogs, createBillingAccount, getProviderBillingAccounts } from '../services/dataService';
+import { Plus, Search, Filter, ChevronRight, Loader2, UserPlus, CheckCircle, Upload, FileText, DollarSign, XCircle, MapPin, ClipboardList, Clock, Trash2, Receipt, History } from 'lucide-react';
+import { Activity, Client, User, ActivityStatus, SubClient, ActivityTypeDefinition, ActivityLog, BillingAccount } from '../types';
 
 export const OrderManagement = () => {
   const { user } = useAuth();
@@ -17,6 +17,11 @@ export const OrderManagement = () => {
   
   const [isLoading, setIsLoading] = useState(true);
   
+  // Provider Billing State
+  const [activeTab, setActiveTab] = useState<'activities' | 'billing'>('activities');
+  const [billingAccounts, setBillingAccounts] = useState<BillingAccount[]>([]);
+  const [selectedForBilling, setSelectedForBilling] = useState<string[]>([]);
+
   // Create Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [subClients, setSubClients] = useState<SubClient[]>([]);
@@ -73,6 +78,12 @@ export const OrderManagement = () => {
         setProviders(users.filter(u => u.role === 'provider'));
         setCoordinators(users.filter(u => u.role === 'coordinator' || u.role === 'admin'));
         setActivityTypes(types);
+
+        if (isProvider) {
+            const bills = await getProviderBillingAccounts(user.tenantId, user.id);
+            setBillingAccounts(bills);
+        }
+
         setIsLoading(false);
     }
   }
@@ -217,10 +228,34 @@ export const OrderManagement = () => {
       loadData();
   }
 
+  // NEW: Generate Consolidated Billing Account
+  const handleGenerateBillingAccount = async () => {
+      if (selectedForBilling.length === 0 || !user?.tenantId) return;
+      
+      const selectedActivities = activities.filter(a => selectedForBilling.includes(a.id));
+      const totalAmount = selectedActivities.reduce((sum, a) => sum + (a.value || 0), 0);
+
+      const success = await createBillingAccount(user.tenantId, user, selectedForBilling, totalAmount);
+      
+      if (success) {
+          showToast(`Cuenta de Cobro generada por $${totalAmount.toLocaleString()}`, "success");
+          setSelectedForBilling([]);
+          loadData();
+      } else {
+          showToast("Error al generar cuenta de cobro", "error");
+      }
+  }
+
   const handlePayment = async (id: string, status: 'paid' | 'rejected') => {
       await processPayment(id, status);
       showToast(status === 'paid' ? "Pago registrado" : "Pago rechazado", status === 'paid' ? "success" : "error");
       loadData();
+  }
+
+  const toggleActivitySelection = (id: string) => {
+      setSelectedForBilling(prev => 
+          prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+      );
   }
 
   // --- RENDER HELPERS ---
@@ -249,6 +284,8 @@ export const OrderManagement = () => {
       return true;
   });
 
+  const approvedActivities = activities.filter(a => a.status === ActivityStatus.Approved);
+
   if (!user) return null;
 
   const pageTitle = isBillingView ? 'Facturación y Pagos' : (isProvider ? 'Mis Asignaciones' : 'Gestión de Actividades');
@@ -268,133 +305,245 @@ export const OrderManagement = () => {
         )}
       </div>
 
-      {/* Activities Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden min-h-[300px]">
-        {isLoading ? (
-            <div className="flex items-center justify-center h-40 text-slate-500 gap-2"><Loader2 className="animate-spin"/> Cargando...</div>
-        ) : (
-            <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
-                <tr>
-                    <th className="px-6 py-4">ID / Tipo</th>
-                    <th className="px-6 py-4">Cliente / Ubicación</th>
-                    <th className="px-6 py-4">Valores</th>
-                    <th className="px-6 py-4">Responsables</th>
-                    <th className="px-6 py-4">Estado</th>
-                    <th className="px-6 py-4 text-right">Acciones</th>
-                </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-                {filteredActivities.length > 0 ? filteredActivities.map((act) => {
-                    const client = clients.find(c => c.id === act.clientId);
-                    const provider = providers.find(p => p.id === act.assignedProviderId);
-                    const coord = coordinators.find(c => c.id === act.coordinatorId);
-                    
-                    return (
-                    <tr key={act.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4">
-                            <div className="font-bold text-slate-800">#{act.orderNumber || act.id.slice(-6)}</div>
-                            <div className="text-xs text-slate-500 font-medium">{act.activityType}</div>
-                            {act.serviceOrderId && <div className="text-xs text-purple-600 font-mono mt-1">OS: {act.serviceOrderId}</div>}
-                        </td>
-                        <td className="px-6 py-4">
-                            <div className="font-medium">{client?.name || '---'}</div>
-                            {act.subClientId && <div className="text-xs text-slate-500 flex items-center gap-1"><MapPin size={10}/> Sub: {act.subClientId}</div>}
-                            <div className="text-xs text-slate-400 mt-1">{act.requestDate}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                            <div className="text-xs text-slate-600"><span className="font-bold">Cant:</span> {act.quantity} {act.unit}</div>
-                            {['coordinator', 'admin', 'accountant'].includes(user.role) && (
-                                <div className="text-xs font-bold text-green-600">${(act.value || 0).toLocaleString()}</div>
-                            )}
-                        </td>
-                        <td className="px-6 py-4 text-xs">
-                             <div className="mb-1">
-                                <span className="text-slate-400">Coord: </span>
-                                <span className="font-medium text-slate-700">{coord?.name || '---'}</span>
-                             </div>
-                             {!isProvider && (
-                                 <div>
-                                    <span className="text-slate-400">Prov: </span>
-                                    {provider ? (
-                                        <span className="font-medium text-blue-600">{provider.name}</span>
-                                    ) : <span className="italic text-amber-600">Pendiente</span>}
-                                 </div>
-                             )}
-                        </td>
-                        <td className="px-6 py-4">
-                            {getStatusBadge(act.status)}
-                            <button onClick={() => handleOpenLogs(act.id)} className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-600 mt-2">
-                                <ClipboardList size={12}/> Bitácora {act.supports && <span className="bg-slate-200 px-1 rounded-full text-[10px]">{act.supports.length}</span>}
-                            </button>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                            <div className="flex justify-end gap-2">
-                                {/* ACTION: ASSIGN (Coordinator) */}
-                                {act.status === ActivityStatus.PendingAssignment && ['coordinator', 'admin'].includes(user.role) && (
-                                    <button onClick={() => setAssignModal(act.id)} className="px-3 py-1 bg-blue-50 text-blue-600 rounded border border-blue-200 hover:bg-blue-100 flex items-center gap-1">
-                                        <UserPlus size={14}/> Asignar
-                                    </button>
-                                )}
+      {/* Provider Tabs */}
+      {isProvider && (
+          <div className="flex border-b border-slate-200 mb-6">
+              <button 
+                  onClick={() => setActiveTab('activities')}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'activities' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              >
+                  <ClipboardList size={16}/> Actividades
+              </button>
+              <button 
+                  onClick={() => setActiveTab('billing')}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'billing' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              >
+                  <Receipt size={16}/> Cuentas de Cobro
+              </button>
+          </div>
+      )}
 
-                                {/* ACTION: EXECUTE/FINALIZE (Provider) */}
-                                {['assigned', 'in_execution'].includes(act.status) && user.role === 'provider' && act.assignedProviderId === user.id && (
-                                    <button onClick={() => { setExecuteModal(act.id); setModalFiles([]); }} className="px-3 py-1 bg-amber-50 text-amber-600 rounded border border-amber-200 hover:bg-amber-100">
-                                        Iniciar / Reportar
-                                    </button>
+      {/* MAIN ACTIVITY TABLE */}
+      {(activeTab === 'activities' || !isProvider) && (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden min-h-[300px]">
+            {isLoading ? (
+                <div className="flex items-center justify-center h-40 text-slate-500 gap-2"><Loader2 className="animate-spin"/> Cargando...</div>
+            ) : (
+                <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
+                    <tr>
+                        <th className="px-6 py-4">ID / Tipo</th>
+                        <th className="px-6 py-4">Cliente / Ubicación</th>
+                        <th className="px-6 py-4">Valores</th>
+                        <th className="px-6 py-4">Responsables</th>
+                        <th className="px-6 py-4">Estado</th>
+                        <th className="px-6 py-4 text-right">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                    {filteredActivities.length > 0 ? filteredActivities.map((act) => {
+                        const client = clients.find(c => c.id === act.clientId);
+                        const provider = providers.find(p => p.id === act.assignedProviderId);
+                        const coord = coordinators.find(c => c.id === act.coordinatorId);
+                        
+                        return (
+                        <tr key={act.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-4">
+                                <div className="font-bold text-slate-800">#{act.orderNumber || act.id.slice(-6)}</div>
+                                <div className="text-xs text-slate-500 font-medium">{act.activityType}</div>
+                                {act.serviceOrderId && <div className="text-xs text-purple-600 font-mono mt-1">OS: {act.serviceOrderId}</div>}
+                            </td>
+                            <td className="px-6 py-4">
+                                <div className="font-medium">{client?.name || '---'}</div>
+                                {act.subClientId && <div className="text-xs text-slate-500 flex items-center gap-1"><MapPin size={10}/> Sub: {act.subClientId}</div>}
+                                <div className="text-xs text-slate-400 mt-1">{act.requestDate}</div>
+                            </td>
+                            <td className="px-6 py-4">
+                                <div className="text-xs text-slate-600"><span className="font-bold">Cant:</span> {act.quantity} {act.unit}</div>
+                                {['coordinator', 'admin', 'accountant', 'provider'].includes(user.role) && (
+                                    <div className="text-xs font-bold text-green-600">${(act.value || 0).toLocaleString()}</div>
                                 )}
-                                {act.status === ActivityStatus.InExecution && user.role === 'provider' && act.assignedProviderId === user.id && (
-                                    <button onClick={() => { setSupportModal(act.id); setModalFiles([]); }} className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded border border-indigo-200 hover:bg-indigo-100 flex items-center gap-1">
-                                        <Upload size={14}/> Finalizar
-                                    </button>
-                                )}
-
-                                {/* ACTION: APPROVE (Coordinator) - NOW OPENS APPROVAL MODAL */}
-                                {act.status === ActivityStatus.Finalized && ['coordinator', 'admin'].includes(user.role) && (
-                                    <button onClick={() => setApprovalModal(act)} className="px-3 py-1 bg-green-50 text-green-600 rounded border border-green-200 hover:bg-green-100 flex items-center gap-1">
-                                        <CheckCircle size={14}/> Aprobar
-                                    </button>
-                                )}
-
-                                {/* ACTION: REQUEST BILLING (Coordinator) */}
-                                {act.status === ActivityStatus.Approved && ['coordinator', 'admin'].includes(user.role) && (
-                                    <button onClick={() => handleRequestBilling(act.id)} className="px-3 py-1 bg-purple-50 text-purple-600 rounded border border-purple-200 hover:bg-purple-100 flex items-center gap-1">
-                                        <DollarSign size={14}/> Facturar
-                                    </button>
-                                )}
-
-                                {/* ACTION: FILE RECEIVABLE (Provider) */}
-                                {act.status === ActivityStatus.BillingRequested && user.role === 'provider' && (
-                                    <button onClick={() => handleFileReceivable(act.id)} className="px-3 py-1 bg-orange-50 text-orange-600 rounded border border-orange-200 hover:bg-orange-100 flex items-center gap-1">
-                                        <FileText size={14}/> Radicar
-                                    </button>
-                                )}
-
-                                {/* ACTION: PAY (Accountant) */}
-                                {act.status === ActivityStatus.AccountReceivableFiled && ['accountant', 'admin'].includes(user.role) && (
-                                    <div className="flex gap-1">
-                                        <button onClick={() => handlePayment(act.id, 'paid')} className="px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-xs">
-                                            Pagar
-                                        </button>
-                                        <button onClick={() => handlePayment(act.id, 'rejected')} className="px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 text-xs">
-                                            Rechazar
-                                        </button>
+                            </td>
+                            <td className="px-6 py-4 text-xs">
+                                <div className="mb-1">
+                                    <span className="text-slate-400">Coord: </span>
+                                    <span className="font-medium text-slate-700">{coord?.name || '---'}</span>
+                                </div>
+                                {!isProvider && (
+                                    <div>
+                                        <span className="text-slate-400">Prov: </span>
+                                        {provider ? (
+                                            <span className="font-medium text-blue-600">{provider.name}</span>
+                                        ) : <span className="italic text-amber-600">Pendiente</span>}
                                     </div>
                                 )}
-                            </div>
-                        </td>
-                    </tr>
-                )}) : (
-                    <tr>
-                        <td colSpan={6} className="px-6 py-10 text-center text-slate-400 italic">
-                            {isProvider ? 'No tienes asignaciones pendientes.' : 'No hay actividades registradas con los filtros actuales.'}
-                        </td>
-                    </tr>
-                )}
-            </tbody>
-            </table>
-        )}
-      </div>
+                            </td>
+                            <td className="px-6 py-4">
+                                {getStatusBadge(act.status)}
+                                <button onClick={() => handleOpenLogs(act.id)} className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-600 mt-2">
+                                    <ClipboardList size={12}/> Bitácora {act.supports && <span className="bg-slate-200 px-1 rounded-full text-[10px]">{act.supports.length}</span>}
+                                </button>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                                <div className="flex justify-end gap-2">
+                                    {/* ACTION: ASSIGN (Coordinator) */}
+                                    {act.status === ActivityStatus.PendingAssignment && ['coordinator', 'admin'].includes(user.role) && (
+                                        <button onClick={() => setAssignModal(act.id)} className="px-3 py-1 bg-blue-50 text-blue-600 rounded border border-blue-200 hover:bg-blue-100 flex items-center gap-1">
+                                            <UserPlus size={14}/> Asignar
+                                        </button>
+                                    )}
+
+                                    {/* ACTION: EXECUTE/FINALIZE (Provider) */}
+                                    {['assigned', 'in_execution'].includes(act.status) && user.role === 'provider' && act.assignedProviderId === user.id && (
+                                        <button onClick={() => { setExecuteModal(act.id); setModalFiles([]); }} className="px-3 py-1 bg-amber-50 text-amber-600 rounded border border-amber-200 hover:bg-amber-100">
+                                            Iniciar / Reportar
+                                        </button>
+                                    )}
+                                    {act.status === ActivityStatus.InExecution && user.role === 'provider' && act.assignedProviderId === user.id && (
+                                        <button onClick={() => { setSupportModal(act.id); setModalFiles([]); }} className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded border border-indigo-200 hover:bg-indigo-100 flex items-center gap-1">
+                                            <Upload size={14}/> Finalizar
+                                        </button>
+                                    )}
+
+                                    {/* ACTION: APPROVE (Coordinator) - NOW OPENS APPROVAL MODAL */}
+                                    {act.status === ActivityStatus.Finalized && ['coordinator', 'admin'].includes(user.role) && (
+                                        <button onClick={() => setApprovalModal(act)} className="px-3 py-1 bg-green-50 text-green-600 rounded border border-green-200 hover:bg-green-100 flex items-center gap-1">
+                                            <CheckCircle size={14}/> Aprobar
+                                        </button>
+                                    )}
+
+                                    {/* ACTION: REQUEST BILLING (Coordinator - Legacy) */}
+                                    {act.status === ActivityStatus.Approved && ['coordinator', 'admin'].includes(user.role) && !act.billingAccountId && (
+                                        <button onClick={() => handleRequestBilling(act.id)} className="px-3 py-1 bg-purple-50 text-purple-600 rounded border border-purple-200 hover:bg-purple-100 flex items-center gap-1">
+                                            <DollarSign size={14}/> Facturar
+                                        </button>
+                                    )}
+
+                                    {/* ACTION: PAY (Accountant) */}
+                                    {act.status === ActivityStatus.AccountReceivableFiled && ['accountant', 'admin'].includes(user.role) && (
+                                        <div className="flex gap-1">
+                                            <button onClick={() => handlePayment(act.id, 'paid')} className="px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-xs">
+                                                Pagar
+                                            </button>
+                                            <button onClick={() => handlePayment(act.id, 'rejected')} className="px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 text-xs">
+                                                Rechazar
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </td>
+                        </tr>
+                    )}) : (
+                        <tr>
+                            <td colSpan={6} className="px-6 py-10 text-center text-slate-400 italic">
+                                {isProvider ? 'No tienes asignaciones pendientes.' : 'No hay actividades registradas con los filtros actuales.'}
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+                </table>
+            )}
+          </div>
+      )}
+
+      {/* BILLING VIEW (PROVIDER ONLY) */}
+      {activeTab === 'billing' && isProvider && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in">
+              {/* Section 1: Create Billing Account */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                  <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Receipt size={20}/> Generar Cuenta de Cobro</h3>
+                  <p className="text-sm text-slate-500 mb-4">Seleccione las actividades aprobadas que desea incluir en este cobro.</p>
+                  
+                  {approvedActivities.length > 0 ? (
+                      <div>
+                          <div className="max-h-[300px] overflow-y-auto border rounded-lg mb-4">
+                              <table className="w-full text-xs text-left">
+                                  <thead className="bg-slate-50 uppercase text-slate-500 sticky top-0">
+                                      <tr>
+                                          <th className="p-2 w-8"></th>
+                                          <th className="p-2">Actividad</th>
+                                          <th className="p-2 text-right">Valor</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                      {approvedActivities.map(act => (
+                                          <tr key={act.id} className="hover:bg-slate-50">
+                                              <td className="p-2">
+                                                  <input 
+                                                      type="checkbox" 
+                                                      checked={selectedForBilling.includes(act.id)}
+                                                      onChange={() => toggleActivitySelection(act.id)}
+                                                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                                  />
+                                              </td>
+                                              <td className="p-2">
+                                                  <div className="font-medium text-slate-800">{act.activityType}</div>
+                                                  <div className="text-[10px] text-slate-500">#{act.orderNumber} - {clients.find(c=>c.id===act.clientId)?.name}</div>
+                                              </td>
+                                              <td className="p-2 text-right font-bold text-slate-700">
+                                                  ${(act.value || 0).toLocaleString()}
+                                              </td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                              </table>
+                          </div>
+                          <div className="flex justify-between items-center bg-slate-50 p-3 rounded border border-slate-200">
+                              <span className="text-sm font-bold text-slate-600">Total Seleccionado:</span>
+                              <span className="text-lg font-bold text-green-600">
+                                  ${activities
+                                      .filter(a => selectedForBilling.includes(a.id))
+                                      .reduce((sum, a) => sum + (a.value || 0), 0)
+                                      .toLocaleString()
+                                  }
+                              </span>
+                          </div>
+                          <button 
+                              onClick={handleGenerateBillingAccount}
+                              disabled={selectedForBilling.length === 0}
+                              className="w-full mt-4 bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
+                          >
+                              Generar y Radicar Cuenta de Cobro
+                          </button>
+                      </div>
+                  ) : (
+                      <div className="text-center py-8 bg-slate-50 rounded border border-dashed text-slate-400">
+                          No hay actividades aprobadas pendientes de cobro.
+                      </div>
+                  )}
+              </div>
+
+              {/* Section 2: Billing History */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                  <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><History size={20}/> Historial de Cobros</h3>
+                  {billingAccounts.length > 0 ? (
+                      <div className="space-y-3">
+                          {billingAccounts.map(bill => (
+                              <div key={bill.id} className="p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                                  <div className="flex justify-between items-center mb-2">
+                                      <span className="font-bold text-slate-800 text-sm">{bill.consecutive}</span>
+                                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                          bill.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                                      }`}>
+                                          {bill.status === 'pending' ? 'Radicada' : 'Pagada'}
+                                      </span>
+                                  </div>
+                                  <div className="flex justify-between text-xs text-slate-500">
+                                      <span>{new Date(bill.date).toLocaleDateString()}</span>
+                                      <span>{bill.activityIds.length} Actividades</span>
+                                  </div>
+                                  <div className="mt-2 pt-2 border-t border-slate-100 text-right">
+                                      <span className="text-sm font-bold text-slate-700">${bill.totalAmount.toLocaleString()}</span>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  ) : (
+                      <div className="text-center py-8 text-slate-400 italic">No hay historial de cuentas de cobro.</div>
+                  )}
+              </div>
+          </div>
+      )}
 
       {/* CREATE MODAL */}
       {showCreateModal && (

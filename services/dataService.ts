@@ -3,7 +3,7 @@ import { db, auth, firebaseConfig } from '../firebaseConfig';
 import { collection, query, where, getDocs, addDoc, doc, updateDoc, setDoc, getFirestore, getDoc, orderBy } from 'firebase/firestore';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut, signInWithEmailAndPassword } from 'firebase/auth';
-import { Activity, Client, Tenant, User, ActivityStatus, PlanType, Invoice, UserRole, SubClient, ServiceOrder, ClientContact, ClientPrice, SubClientContact, ConsultantRate, ActivityStateDefinition, ActivityTypeDefinition, ActivityAssignment, ActivityLog, ActivityApproval } from '../types';
+import { Activity, Client, Tenant, User, ActivityStatus, PlanType, Invoice, UserRole, SubClient, ServiceOrder, ClientContact, ClientPrice, SubClientContact, ConsultantRate, ActivityStateDefinition, ActivityTypeDefinition, ActivityAssignment, ActivityLog, ActivityApproval, BillingAccount } from '../types';
 import { MOCK_INVOICES } from '../constants';
 
 // Collections
@@ -285,7 +285,8 @@ export const createActivity = async (data: Partial<Activity>, currentUser: User)
         requestDate: new Date().toISOString().split('T')[0],
         status: ActivityStatus.PendingAssignment, // Always starts here
         progress: 0,
-        ...data
+        ...data,
+        userName: currentUser.name || 'Usuario' // Snapshot for list views
     };
 
     try {
@@ -470,7 +471,7 @@ export const createActivityApproval = async (
     }
 }
 
-// Req 8: Coordinator Requests Billing
+// Req 8: Coordinator Requests Billing (Legacy / Admin flow)
 export const requestBilling = async (activityId: string, userId: string) => {
     const ref = doc(db, 'activities', activityId);
     await updateDoc(ref, {
@@ -502,6 +503,58 @@ export const fileAccountReceivable = async (activityId: string) => {
         comment: 'Cuenta de cobro radicada por el consultor.',
         userName: 'Consultor'
     });
+}
+
+// Req 9 Enhanced: Generate Consolidated Billing Account
+export const createBillingAccount = async (tenantId: string, user: User, activityIds: string[], totalAmount: number): Promise<boolean> => {
+    try {
+        // 1. Create the Billing Account Document
+        const consecutive = `CB-${Date.now().toString().slice(-6)}`;
+        const billingDoc = await addDoc(collection(db, `tenants/${tenantId}/billingAccounts`), {
+            tenantId,
+            providerId: user.id,
+            providerName: user.name || 'Consultor',
+            consecutive,
+            date: new Date().toISOString(),
+            totalAmount,
+            activityIds,
+            status: 'pending'
+        });
+
+        // 2. Update all associated activities
+        // Note: Ideally this should be a batch, but keeping simple for now
+        for (const actId of activityIds) {
+            const actRef = doc(db, 'activities', actId);
+            await updateDoc(actRef, {
+                status: ActivityStatus.AccountReceivableFiled,
+                billingAccountId: billingDoc.id
+            });
+            
+            // Log history
+            await createActivityLog(actId, {
+                date: new Date().toISOString(),
+                status: ActivityStatus.AccountReceivableFiled,
+                executedUnits: 0,
+                comment: `Cuenta de cobro ${consecutive} generada y radicada.`,
+                userId: user.id,
+                userName: user.name
+            });
+        }
+
+        return true;
+    } catch (e) {
+        console.error("Error creating billing account:", e);
+        return false;
+    }
+}
+
+export const getProviderBillingAccounts = async (tenantId: string, providerId: string): Promise<BillingAccount[]> => {
+    try {
+        const ref = collection(db, `tenants/${tenantId}/billingAccounts`);
+        const q = query(ref, where('providerId', '==', providerId), orderBy('date', 'desc'));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({...doc.data(), id: doc.id} as BillingAccount));
+    } catch(e) { return [] }
 }
 
 // Req 10: Accountant Pays

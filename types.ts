@@ -224,6 +224,20 @@ export interface ActivityApproval {
     date: string;
 }
 
+// NEW TABLE: Billing Account (Cuenta de Cobro Consultor)
+// Collection: tenants/{tenantId}/billingAccounts
+export interface BillingAccount {
+    id: string;
+    tenantId: string;
+    providerId: string;
+    providerName: string;
+    consecutive: string; // Auto-generated
+    date: string;
+    totalAmount: number;
+    activityIds: string[]; // Linked Approved Activities
+    status: 'pending' | 'paid' | 'rejected';
+}
+
 // Root Collection: activities
 export interface Activity {
   id: string; // ID_ACTIVIDAD
@@ -271,6 +285,9 @@ export interface Activity {
   readyForBillingBy?: string; 
   billingRequestedAt?: string;
   paidAt?: string;
+  
+  // Req 9: Consultant Billing
+  billingAccountId?: string; // Link to BillingAccount
 }
 
 export interface ServiceOrder {
