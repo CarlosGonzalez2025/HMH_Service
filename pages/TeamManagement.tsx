@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { getTenantUsers, registerUserForTenant, getConsultantRates, createConsultantRate, getClients } from '../services/dataService';
+import { getTenantUsers, registerUserForTenant, getConsultantRates, createConsultantRate, getClients, updateUserProfile } from '../services/dataService';
 import { User, UserRole, ConsultantRate, Client } from '../types';
-import { Users, Plus, Shield, User as UserIcon, XCircle, Loader2, BarChart, DollarSign, FileText, Phone, MapPin, Briefcase, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
+import { Users, Plus, Shield, User as UserIcon, XCircle, Loader2, BarChart, DollarSign, FileText, Phone, MapPin, Briefcase, ChevronDown, ChevronUp, Calendar, Pencil } from 'lucide-react';
 
 export const TeamManagement = () => {
     const { user, tenant } = useAuth();
@@ -13,9 +13,11 @@ export const TeamManagement = () => {
     const [clients, setClients] = useState<Client[]>([]);
     const [loading, setLoading] = useState(true);
     
-    // Create User Modal
+    // Create/Edit User Modal
     const [showModal, setShowModal] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editingUserId, setEditingUserId] = useState<string | null>(null);
 
     // Expandable Rows State
     const [expandedUser, setExpandedUser] = useState<string | null>(null);
@@ -25,7 +27,7 @@ export const TeamManagement = () => {
     const [rateModal, setRateModal] = useState<string | null>(null); // Provider ID
     const [rateFormData, setRateFormData] = useState({ clientId: '', unit: '', value: 0 });
 
-    // New User Form
+    // New/Edit User Form
     const [newUser, setNewUser] = useState({
         name: '',
         email: '',
@@ -73,12 +75,46 @@ export const TeamManagement = () => {
         }
     };
 
-    const handleCreateUser = async (e: React.FormEvent) => {
+    const handleEditUser = (u: User) => {
+        setNewUser({
+            name: u.name,
+            email: u.email,
+            role: u.role,
+            password: '', // Password reset not directly handled here for security
+            documentType: u.documentType || 'CC',
+            documentNumber: u.documentNumber || '',
+            profession: u.profession || '',
+            specialization: u.specialization || '',
+            licenseSst: u.licenseSst || '',
+            licenseNumber: u.licenseNumber || '',
+            licenseDate: u.licenseDate || '',
+            phone: u.phone || '',
+            department: u.department || '',
+            city: u.city || ''
+        });
+        setIsEditing(true);
+        setEditingUserId(u.id);
+        setShowModal(true);
+    };
+
+    const openCreateModal = () => {
+        setNewUser({ 
+            name: '', email: '', role: 'provider', password: '',
+            documentType: 'CC', documentNumber: '', profession: '', specialization: '', 
+            licenseSst: '', licenseNumber: '', licenseDate: '', phone: '', department: '', city: ''
+        });
+        setIsEditing(false);
+        setEditingUserId(null);
+        setShowModal(true);
+    }
+
+    const handleSubmitUser = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!tenant) return;
 
         setSubmitting(true);
         
+        // Collect extended profile data
         const extraProfileData: Partial<User> = {};
         if (newUser.role === 'provider') {
             extraProfileData.documentType = newUser.documentType;
@@ -93,25 +129,40 @@ export const TeamManagement = () => {
             extraProfileData.city = newUser.city;
         }
 
-        const success = await registerUserForTenant({
-            name: newUser.name,
-            email: newUser.email,
-            role: newUser.role,
-            password: newUser.password
-        }, tenant.id, extraProfileData);
-
-        if (success) {
-            showToast("Usuario creado exitosamente.", "success");
-            setShowModal(false);
-            setNewUser({ 
-                name: '', email: '', role: 'provider', password: '',
-                documentType: 'CC', documentNumber: '', profession: '', specialization: '', 
-                licenseSst: '', licenseNumber: '', licenseDate: '', phone: '', department: '', city: ''
+        if (isEditing && editingUserId) {
+            // UPDATE MODE
+            const success = await updateUserProfile(editingUserId, {
+                name: newUser.name,
+                role: newUser.role,
+                ...extraProfileData
             });
-            loadTeam();
+
+            if (success) {
+                showToast("Usuario actualizado exitosamente.", "success");
+                setShowModal(false);
+                loadTeam();
+            } else {
+                showToast("Error al actualizar el usuario.", "error");
+            }
         } else {
-            showToast("Error al crear el usuario. Verifique si el correo ya existe.", "error");
+            // CREATE MODE
+            const success = await registerUserForTenant({
+                name: newUser.name,
+                email: newUser.email,
+                role: newUser.role,
+                password: newUser.password
+            }, tenant.id, extraProfileData);
+
+            if (success) {
+                showToast("Usuario creado exitosamente.", "success");
+                setShowModal(false);
+                openCreateModal(); // Reset
+                loadTeam();
+            } else {
+                showToast("Error al crear el usuario. Verifique si el correo ya existe.", "error");
+            }
         }
+        
         setSubmitting(false);
     };
 
@@ -149,7 +200,7 @@ export const TeamManagement = () => {
                     <p className="text-slate-500 text-sm">Gestiona el personal de {tenant.name}</p>
                 </div>
                 <button 
-                    onClick={() => setShowModal(true)}
+                    onClick={openCreateModal}
                     className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-lg shadow-blue-200"
                 >
                     <Plus size={18} /> Nuevo Usuario
@@ -168,7 +219,7 @@ export const TeamManagement = () => {
                                 <th className="px-6 py-4">Rol / Profesión</th>
                                 <th className="px-6 py-4">Datos Contacto</th>
                                 <th className="px-6 py-4">Estado</th>
-                                <th className="px-6 py-4 text-right">Detalles</th>
+                                <th className="px-6 py-4 text-right">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -212,11 +263,20 @@ export const TeamManagement = () => {
                                             <span className="text-green-600 font-bold text-xs bg-green-50 px-2 py-1 rounded">Activo</span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            {u.role === 'provider' && (
-                                                <button className="text-slate-400 hover:text-blue-600 transition-colors">
-                                                    {expandedUser === u.id ? <ChevronUp size={20}/> : <ChevronDown size={20}/>}
+                                            <div className="flex justify-end items-center gap-2">
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleEditUser(u); }} 
+                                                    className="text-slate-400 hover:text-blue-600 p-1 rounded hover:bg-blue-50 transition-colors"
+                                                    title="Editar Usuario"
+                                                >
+                                                    <Pencil size={16} />
                                                 </button>
-                                            )}
+                                                {u.role === 'provider' && (
+                                                    <button className="text-slate-400 hover:text-blue-600 transition-colors">
+                                                        {expandedUser === u.id ? <ChevronUp size={20}/> : <ChevronDown size={20}/>}
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                     
@@ -228,7 +288,10 @@ export const TeamManagement = () => {
                                                     
                                                     {/* PROFILE CARD */}
                                                     <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
-                                                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center gap-2"><FileText size={14}/> Perfil Profesional</h4>
+                                                        <div className="flex justify-between items-center mb-4">
+                                                            <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><FileText size={14}/> Perfil Profesional</h4>
+                                                            <button onClick={(e) => { e.stopPropagation(); handleEditUser(u); }} className="text-xs text-blue-600 hover:underline">Editar</button>
+                                                        </div>
                                                         <div className="grid grid-cols-2 gap-4 text-sm">
                                                             <div>
                                                                 <p className="text-xs text-slate-400">Profesión</p>
@@ -301,15 +364,17 @@ export const TeamManagement = () => {
                 )}
             </div>
 
-            {/* Modal Create User */}
+            {/* Modal Create/Edit User */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold text-slate-800">Registrar Nuevo Colaborador</h3>
+                            <h3 className="text-lg font-bold text-slate-800">
+                                {isEditing ? 'Editar Colaborador' : 'Registrar Nuevo Colaborador'}
+                            </h3>
                             <button onClick={() => setShowModal(false)}><XCircle className="text-slate-400 hover:text-red-500"/></button>
                         </div>
-                        <form onSubmit={handleCreateUser} className="space-y-4">
+                        <form onSubmit={handleSubmitUser} className="space-y-4">
                             {/* BASIC INFO */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="col-span-2">
@@ -331,12 +396,21 @@ export const TeamManagement = () => {
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-slate-600 mb-1">Email Corporativo</label>
-                                    <input required type="email" className="w-full border rounded p-2" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} />
+                                    <input 
+                                        required 
+                                        type="email" 
+                                        className={`w-full border rounded p-2 ${isEditing ? 'bg-slate-100 text-slate-500' : ''}`} 
+                                        value={newUser.email} 
+                                        onChange={e => setNewUser({...newUser, email: e.target.value})} 
+                                        disabled={isEditing}
+                                    />
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-600 mb-1">Contraseña Inicial</label>
-                                    <input required type="password" className="w-full border rounded p-2" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} placeholder="Min. 6 caracteres"/>
-                                </div>
+                                {!isEditing && (
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 mb-1">Contraseña Inicial</label>
+                                        <input required type="password" className="w-full border rounded p-2" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} placeholder="Min. 6 caracteres"/>
+                                    </div>
+                                )}
                             </div>
 
                             {/* CONSULTANT SPECIFIC FIELDS */}
@@ -398,13 +472,13 @@ export const TeamManagement = () => {
                             )}
 
                             <div className="bg-blue-50 p-3 rounded text-xs text-blue-800 mt-4">
-                                Al crear el usuario, podrá acceder inmediatamente con estas credenciales.
+                                {isEditing ? 'Los cambios se reflejarán inmediatamente en el perfil del usuario.' : 'Al crear el usuario, podrá acceder inmediatamente con estas credenciales.'}
                             </div>
 
                             <div className="flex justify-end gap-2 mt-4">
                                 <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded text-sm font-medium">Cancelar</button>
                                 <button type="submit" disabled={submitting} className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700">
-                                    {submitting ? 'Guardando...' : 'Crear Usuario'}
+                                    {submitting ? 'Guardando...' : (isEditing ? 'Actualizar Usuario' : 'Crear Usuario')}
                                 </button>
                             </div>
                         </form>

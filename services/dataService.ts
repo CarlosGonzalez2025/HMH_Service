@@ -266,7 +266,8 @@ export const createActivityLog = async (activityId: string, data: Partial<Activi
     try {
         await addDoc(collection(db, `activities/${activityId}/logs`), {
             ...data,
-            activityId
+            activityId,
+            userName: data.userName || 'Sistema' // Ensure userName is never undefined
         });
     } catch(e) { console.error(e); }
 }
@@ -296,7 +297,7 @@ export const createActivity = async (data: Partial<Activity>, currentUser: User)
           executedUnits: 0,
           comment: 'Solicitud creada en el sistema',
           userId: currentUser.id,
-          userName: currentUser.name
+          userName: currentUser.name || 'Usuario'
       });
 
       return { ...newActivity, id: docRef.id } as Activity;
@@ -315,7 +316,7 @@ export const assignActivity = async (activityId: string, provider: User, percent
             activityId,
             providerId: provider.id,
             providerDocument: provider.documentNumber || 'N/A', // Snapshot
-            providerName: provider.name, // Snapshot
+            providerName: provider.name || 'Consultor', // Snapshot
             allocationPercentage: percentage,
             assignedAt: new Date().toISOString()
         });
@@ -333,7 +334,7 @@ export const assignActivity = async (activityId: string, provider: User, percent
             date: new Date().toISOString(),
             status: ActivityStatus.Assigned,
             executedUnits: 0,
-            comment: `Asignada a ${provider.name} (${percentage}%)`,
+            comment: `Asignada a ${provider.name || 'Consultor'} (${percentage}%)`,
             userName: 'Coordinador'
         });
 
@@ -388,7 +389,7 @@ export const updateActivityStatus = async (
         executedUnits: logData.executedUnits,
         comment: logData.comment,
         userId: logData.userId,
-        userName: logData.userName,
+        userName: logData.userName || 'Usuario',
         supports: logData.supports // Keep history of what was uploaded at this step
     });
 }
@@ -405,10 +406,10 @@ export const createActivityApproval = async (
         const approvalsRef = collection(db, `activities/${activity.id}/approvals`);
         await addDoc(approvalsRef, {
             activityId: activity.id,
-            approverDocument: currentUser.documentNumber || 'N/A', // Snapshot
-            approverName: currentUser.name, // Snapshot
+            approverDocument: currentUser.documentNumber || 'N/A', // Snapshot, fallback to 'N/A' if undefined
+            approverName: currentUser.name || 'Usuario', // Snapshot, fallback to 'Usuario' if undefined
             approved: approved,
-            comments: comments,
+            comments: comments || '',
             date: new Date().toISOString()
         });
 
@@ -443,7 +444,7 @@ export const createActivityApproval = async (
                 executedUnits: activity.quantity,
                 comment: `Aprobada. Orden Servicio Generada: ${orderNumber}. Comentarios: ${comments}`,
                 userId: currentUser.id,
-                userName: currentUser.name
+                userName: currentUser.name || 'Usuario'
             });
         } else {
             // Rejected (Requiere Ajuste) -> Send back to InExecution or a "Review" state
@@ -458,7 +459,7 @@ export const createActivityApproval = async (
                 executedUnits: 0,
                 comment: `Rechazada/Requiere Ajuste. Comentarios: ${comments}`,
                 userId: currentUser.id,
-                userName: currentUser.name
+                userName: currentUser.name || 'Usuario'
             });
         }
 
@@ -531,6 +532,30 @@ export const getTenantUsers = async (tenantId: string): Promise<User[]> => {
     } catch (error) {
         console.error("Error getting team users:", error);
         return [];
+    }
+};
+
+// NEW SERVICE: Update User Profile
+export const updateUserProfile = async (userId: string, data: Partial<User>): Promise<boolean> => {
+    try {
+        const ref = doc(db, 'users', userId);
+        // Filter out fields that shouldn't be updated directly or don't exist
+        // In a real scenario, you'd sanitize this more.
+        const updateData = { ...data };
+        
+        // Remove undefined values to prevent Firestore errors
+        Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+        
+        // Remove protected fields
+        delete (updateData as any).id;
+        delete (updateData as any).email;
+        delete (updateData as any).password;
+
+        await updateDoc(ref, updateData);
+        return true;
+    } catch (error) {
+        console.error("Error updating user profile:", error);
+        return false;
     }
 };
 
