@@ -46,7 +46,7 @@ export const Login = () => {
                 <ShieldCheck className="text-white w-8 h-8" />
               </div>
             </div>
-            <h1 className="text-2xl font-bold text-slate-800">SaaS HMH Enterprise</h1>
+            <h1 className="text-2xl font-bold text-slate-800">HMH SERVICE</h1>
             <p className="text-slate-500 mt-2">Plataforma de Gestión de Consultoría H&S</p>
           </div>
 
