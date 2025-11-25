@@ -1,0 +1,22 @@
+⚠️ IMPORTANTE: El archivo logo.png está vacío
+
+Para que el logo se vea correctamente, necesitas:
+
+1. Descargar el logo desde:
+   https://i.postimg.cc/NMShcK2W/Logo-HMH.png
+
+2. Guardar el archivo descargado como "logo.png"
+
+3. Reemplazar el archivo en:
+   HMH_Service/public/logo.png
+
+4. Verificar que el archivo NO esté vacío:
+   - El archivo debe tener un tamaño mayor a 0 KB
+   - Debe ser una imagen PNG válida
+
+5. Reiniciar el servidor de desarrollo:
+   npm run dev
+
+ALTERNATIVA RÁPIDA:
+Si puedes, arrastra y suelta la imagen descargada directamente
+en la carpeta public/ desde tu explorador de archivos.
