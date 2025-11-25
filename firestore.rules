@@ -11,24 +11,29 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Verifica si el documento del usuario existe
+    function userDocumentExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
     // Obtiene los datos del usuario actual desde la colección users
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // Verifica si el usuario es SuperAdmin
+    // Verifica si el usuario es SuperAdmin (con protección para usuarios nuevos)
     function isSuperAdmin() {
-      return isSignedIn() && getUserData().role == 'superAdmin';
+      return isSignedIn() && userDocumentExists() && getUserData().role == 'superAdmin';
     }
 
     // Verifica si el usuario pertenece a un tenant específico
     function belongsToTenant(tenantId) {
-      return isSignedIn() && getUserData().tenantId == tenantId;
+      return isSignedIn() && userDocumentExists() && getUserData().tenantId == tenantId;
     }
 
     // Verifica si el usuario tiene uno de los roles especificados
     function hasRole(roles) {
-      return isSignedIn() && getUserData().role in roles;
+      return isSignedIn() && userDocumentExists() && getUserData().role in roles;
     }
 
     // Verifica si el usuario es admin o coordinator del tenant
@@ -132,12 +137,16 @@ service cloud.firestore {
     match /users/{userId} {
       // Leer: SuperAdmin puede ver todos, usuarios pueden ver su tenant
       allow read: if isSuperAdmin() ||
-                     (isSignedIn() && resource.data.tenantId == getUserData().tenantId) ||
+                     (isSignedIn() && userDocumentExists() && resource.data.tenantId == getUserData().tenantId) ||
                      (isSignedIn() && userId == request.auth.uid);
 
-      // Crear: SuperAdmin o Admin/Coordinator del tenant
-      allow create: if isSuperAdmin() ||
-                       (isSignedIn() && hasRole(['admin', 'coordinator']) &&
+      // Crear:
+      // 1. Usuario nuevo creando su primer documento (userId coincide con auth.uid)
+      // 2. SuperAdmin creando cualquier usuario
+      // 3. Admin/Coordinator creando usuarios en su tenant
+      allow create: if (isSignedIn() && userId == request.auth.uid && !userDocumentExists()) ||
+                       isSuperAdmin() ||
+                       (isSignedIn() && userDocumentExists() && hasRole(['admin', 'coordinator']) &&
                         request.resource.data.tenantId == getUserData().tenantId);
 
       // Actualizar: SuperAdmin, Admin/Coordinator del mismo tenant, o el propio usuario (su perfil)
