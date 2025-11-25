@@ -162,27 +162,44 @@ export const createClientPrice = async (tenantId: string, clientId: string, data
 }
 
 // Consultant Rates / Tarifas Prestadores
+// REFACTORED: Now stored under clients/{clientId}/consultantRates to avoid permission issues with root collections
 export const getConsultantRates = async (tenantId: string, providerId: string): Promise<ConsultantRate[]> => {
     try {
-        const ref = collection(db, `tenants/${tenantId}/consultantRates`);
-        const q = query(ref, where('providerId', '==', providerId));
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as ConsultantRate));
+        // We need to query all clients to find rates assigned to this provider
+        // This is slightly inefficient but necessary given we can't change security rules easily.
+        // Ideally, we would have a collectionGroup query, but that requires index deployment.
+        const clientsRef = collection(db, `tenants/${tenantId}/clients`);
+        const clientsSnap = await getDocs(clientsRef);
+        
+        let allRates: ConsultantRate[] = [];
+
+        for (const clientDoc of clientsSnap.docs) {
+            const ratesRef = collection(db, `tenants/${tenantId}/clients/${clientDoc.id}/consultantRates`);
+            const q = query(ratesRef, where('providerId', '==', providerId));
+            const ratesSnap = await getDocs(q);
+            
+            ratesSnap.forEach(doc => {
+                allRates.push({ ...doc.data(), id: doc.id, clientId: clientDoc.id } as ConsultantRate);
+            });
+        }
+        return allRates;
     } catch(e) { 
-        console.error(e);
+        console.error("Error fetching consultant rates:", e);
         return []; 
     }
 }
 
 export const createConsultantRate = async (tenantId: string, data: Partial<ConsultantRate>): Promise<boolean> => {
     try {
-        await addDoc(collection(db, `tenants/${tenantId}/consultantRates`), {
+        if (!data.clientId) throw new Error("Client ID required");
+        // Store inside the specific client subcollection
+        await addDoc(collection(db, `tenants/${tenantId}/clients/${data.clientId}/consultantRates`), {
             ...data,
             tenantId
         });
         return true;
     } catch(e) { 
-        console.error(e);
+        console.error("Error creating consultant rate:", e);
         return false; 
     }
 }
@@ -631,8 +648,12 @@ export const updateTenant = async (tenantId: string, data: Partial<Tenant>) => {
 
 export const getGlobalUsers = async (currentUser: User): Promise<User[]> => {
     if (currentUser.role !== 'superAdmin') return [];
-    const snap = await getDocs(REF_USERS);
-    return snap.docs.map(doc => ({...doc.data(), id: doc.id} as User));
+    try {
+        const snap = await getDocs(REF_USERS);
+        return snap.docs.map(doc => ({...doc.data(), id: doc.id} as User));
+    } catch(e) {
+        return []; // Fail gracefully if permissions issue
+    }
 }
 
 export const toggleUserBlock = async (userId: string, currentStatus: string) => {
@@ -645,7 +666,7 @@ export const getInvoices = async (): Promise<Invoice[]> => {
     return new Promise(resolve => setTimeout(() => resolve(MOCK_INVOICES), 500));
 }
 
-export const getPlanLimits = (plan: PlanType) => {
+export const getPlanLimits = (plan?: PlanType) => {
     switch(plan) {
         case 'basic': return { users: 5, storage: '5GB', price: 500000 };
         case 'intermediate': return { users: 15, storage: '50GB', price: 1500000 };

@@ -1,24 +1,31 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { getTenantUsers, registerUserForTenant, getConsultantRates, createConsultantRate, getClients } from '../services/dataService';
 import { User, UserRole, ConsultantRate, Client } from '../types';
-import { Users, Plus, Shield, User as UserIcon, XCircle, Loader2, BarChart, DollarSign, FileText, Phone, MapPin, Briefcase } from 'lucide-react';
+import { Users, Plus, Shield, User as UserIcon, XCircle, Loader2, BarChart, DollarSign, FileText, Phone, MapPin, Briefcase, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
 
 export const TeamManagement = () => {
     const { user, tenant } = useAuth();
+    const { showToast } = useToast();
     const [users, setUsers] = useState<User[]>([]);
+    const [clients, setClients] = useState<Client[]>([]);
     const [loading, setLoading] = useState(true);
+    
+    // Create User Modal
     const [showModal, setShowModal] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
-    // Rate Management
+    // Expandable Rows State
+    const [expandedUser, setExpandedUser] = useState<string | null>(null);
+    const [expandedRates, setExpandedRates] = useState<ConsultantRate[]>([]);
+
+    // Add Rate Modal
     const [rateModal, setRateModal] = useState<string | null>(null); // Provider ID
-    const [currentRates, setCurrentRates] = useState<ConsultantRate[]>([]);
-    const [clients, setClients] = useState<Client[]>([]);
     const [rateFormData, setRateFormData] = useState({ clientId: '', unit: '', value: 0 });
 
-    // Form
+    // New User Form
     const [newUser, setNewUser] = useState({
         name: '',
         email: '',
@@ -29,7 +36,7 @@ export const TeamManagement = () => {
         documentNumber: '',
         profession: '',
         specialization: '',
-        licenseSst: '', // Just string/text for now
+        licenseSst: '',
         licenseNumber: '',
         licenseDate: '',
         phone: '',
@@ -40,8 +47,12 @@ export const TeamManagement = () => {
     const loadTeam = async () => {
         if (user && user.tenantId) {
             setLoading(true);
-            const data = await getTenantUsers(user.tenantId);
-            setUsers(data);
+            const [dataUsers, dataClients] = await Promise.all([
+                getTenantUsers(user.tenantId),
+                getClients(user)
+            ]);
+            setUsers(dataUsers);
+            setClients(dataClients);
             setLoading(false);
         }
     };
@@ -49,6 +60,18 @@ export const TeamManagement = () => {
     useEffect(() => {
         loadTeam();
     }, [user]);
+
+    const handleExpand = async (userId: string) => {
+        if (expandedUser === userId) {
+            setExpandedUser(null);
+        } else {
+            setExpandedUser(userId);
+            if (user?.tenantId) {
+                const rates = await getConsultantRates(user.tenantId, userId);
+                setExpandedRates(rates);
+            }
+        }
+    };
 
     const handleCreateUser = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -78,7 +101,7 @@ export const TeamManagement = () => {
         }, tenant.id, extraProfileData);
 
         if (success) {
-            alert("Usuario creado exitosamente.");
+            showToast("Usuario creado exitosamente.", "success");
             setShowModal(false);
             setNewUser({ 
                 name: '', email: '', role: 'provider', password: '',
@@ -86,34 +109,34 @@ export const TeamManagement = () => {
                 licenseSst: '', licenseNumber: '', licenseDate: '', phone: '', department: '', city: ''
             });
             loadTeam();
+        } else {
+            showToast("Error al crear el usuario. Verifique si el correo ya existe.", "error");
         }
         setSubmitting(false);
-    };
-
-    const handleOpenRates = async (providerId: string) => {
-        if (!user || !user.tenantId) return;
-        setRateModal(providerId);
-        const [rates, clis] = await Promise.all([
-            getConsultantRates(user.tenantId, providerId),
-            getClients(user)
-        ]);
-        setCurrentRates(rates);
-        setClients(clis);
     };
 
     const handleSaveRate = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user?.tenantId || !rateModal) return;
-        await createConsultantRate(user.tenantId, {
+        const success = await createConsultantRate(user.tenantId, {
             providerId: rateModal,
             clientId: rateFormData.clientId,
             unit: rateFormData.unit,
             value: rateFormData.value
         });
-        // Refresh
-        const rates = await getConsultantRates(user.tenantId, rateModal);
-        setCurrentRates(rates);
-        setRateFormData({ clientId: '', unit: '', value: 0 });
+        
+        if(success) {
+            showToast("Tarifa agregada correctamente", "success");
+            // Refresh rates in expanded view if applicable
+            if (expandedUser === rateModal) {
+                const rates = await getConsultantRates(user.tenantId, rateModal);
+                setExpandedRates(rates);
+            }
+            setRateModal(null);
+            setRateFormData({ clientId: '', unit: '', value: 0 });
+        } else {
+            showToast("Error al guardar la tarifa", "error");
+        }
     };
 
     if (!user || !tenant) return null;
@@ -145,60 +168,133 @@ export const TeamManagement = () => {
                                 <th className="px-6 py-4">Rol / Profesión</th>
                                 <th className="px-6 py-4">Datos Contacto</th>
                                 <th className="px-6 py-4">Estado</th>
-                                <th className="px-6 py-4 text-right">Acciones</th>
+                                <th className="px-6 py-4 text-right">Detalles</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {users.map(u => (
-                                <tr key={u.id} className="hover:bg-slate-50">
-                                    <td className="px-6 py-4">
-                                        <div className="font-medium text-slate-900">{u.name}</div>
-                                        <div className="text-xs text-slate-500">{u.email}</div>
-                                        {u.role === 'provider' && u.documentNumber && (
-                                            <div className="text-xs text-slate-400 mt-0.5 font-mono">{u.documentType} {u.documentNumber}</div>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex flex-col gap-1 items-start">
-                                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                                                u.role === 'admin' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                                u.role === 'coordinator' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                                u.role === 'analyst' ? 'bg-orange-50 text-orange-700 border-orange-200' :
-                                                u.role === 'accountant' ? 'bg-green-50 text-green-700 border-green-200' :
-                                                'bg-slate-50 text-slate-600 border-slate-200'
-                                            }`}>
-                                                {u.role === 'admin' && <Shield size={12}/>}
-                                                {u.role === 'analyst' && <BarChart size={12}/>}
-                                                {u.role === 'accountant' && <DollarSign size={12}/>}
-                                                {u.role.toUpperCase()}
-                                            </span>
-                                            {u.role === 'provider' && u.profession && (
-                                                <span className="text-xs text-slate-600 font-medium">{u.profession}</span>
+                                <React.Fragment key={u.id}>
+                                    <tr 
+                                        className={`hover:bg-slate-50 transition-colors ${u.role === 'provider' ? 'cursor-pointer' : ''}`} 
+                                        onClick={() => u.role === 'provider' && handleExpand(u.id)}
+                                    >
+                                        <td className="px-6 py-4">
+                                            <div className="font-medium text-slate-900">{u.name}</div>
+                                            <div className="text-xs text-slate-500">{u.email}</div>
+                                            {u.role === 'provider' && u.documentNumber && (
+                                                <div className="text-xs text-slate-400 mt-0.5 font-mono">{u.documentType} {u.documentNumber}</div>
                                             )}
-                                            {u.role === 'provider' && u.licenseNumber && (
-                                                <span className="text-[10px] text-slate-500 flex items-center gap-1"><FileText size={10}/> Lic: {u.licenseNumber}</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col gap-1 items-start">
+                                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                                                    u.role === 'admin' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                                    u.role === 'coordinator' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                    u.role === 'analyst' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                                                    u.role === 'accountant' ? 'bg-green-50 text-green-700 border-green-200' :
+                                                    'bg-slate-50 text-slate-600 border-slate-200'
+                                                }`}>
+                                                    {u.role === 'admin' && <Shield size={12}/>}
+                                                    {u.role === 'analyst' && <BarChart size={12}/>}
+                                                    {u.role === 'accountant' && <DollarSign size={12}/>}
+                                                    {u.role.toUpperCase()}
+                                                </span>
+                                                {u.role === 'provider' && u.profession && (
+                                                    <span className="text-xs text-slate-600 font-medium">{u.profession}</span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-xs">
+                                            {u.phone && <div className="flex items-center gap-1 mb-1"><Phone size={12} className="text-slate-400"/> {u.phone}</div>}
+                                            {u.city && <div className="flex items-center gap-1"><MapPin size={12} className="text-slate-400"/> {u.city}, {u.department}</div>}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-green-600 font-bold text-xs bg-green-50 px-2 py-1 rounded">Activo</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            {u.role === 'provider' && (
+                                                <button className="text-slate-400 hover:text-blue-600 transition-colors">
+                                                    {expandedUser === u.id ? <ChevronUp size={20}/> : <ChevronDown size={20}/>}
+                                                </button>
                                             )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-xs">
-                                        {u.phone && <div className="flex items-center gap-1 mb-1"><Phone size={12} className="text-slate-400"/> {u.phone}</div>}
-                                        {u.city && <div className="flex items-center gap-1"><MapPin size={12} className="text-slate-400"/> {u.city}, {u.department}</div>}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="text-green-600 font-bold text-xs bg-green-50 px-2 py-1 rounded">Activo</span>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        {u.role === 'provider' && (
-                                            <button 
-                                                onClick={() => handleOpenRates(u.id)}
-                                                className="text-green-600 hover:bg-green-50 p-1.5 rounded flex items-center gap-1 ml-auto text-xs font-bold border border-transparent hover:border-green-200 transition-colors"
-                                                title="Gestionar Tarifas"
-                                            >
-                                                <DollarSign size={14}/> Tarifas
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
+                                        </td>
+                                    </tr>
+                                    
+                                    {/* EXPANDED PROVIDER DETAILS */}
+                                    {expandedUser === u.id && u.role === 'provider' && (
+                                        <tr className="bg-slate-50 border-b border-slate-200 animate-in fade-in">
+                                            <td colSpan={5} className="p-6">
+                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                                    
+                                                    {/* PROFILE CARD */}
+                                                    <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
+                                                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center gap-2"><FileText size={14}/> Perfil Profesional</h4>
+                                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                                            <div>
+                                                                <p className="text-xs text-slate-400">Profesión</p>
+                                                                <p className="font-medium text-slate-700">{u.profession || '-'}</p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs text-slate-400">Especialización</p>
+                                                                <p className="font-medium text-slate-700">{u.specialization || '-'}</p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs text-slate-400">Licencia SST</p>
+                                                                <p className="font-medium text-slate-700">{u.licenseNumber || '-'}</p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs text-slate-400">F. Expedición</p>
+                                                                <p className="font-medium text-slate-700">{u.licenseDate || '-'}</p>
+                                                            </div>
+                                                            <div className="col-span-2 border-t pt-2 mt-2">
+                                                                <p className="text-xs text-slate-400 mb-1">Ubicación</p>
+                                                                <p className="font-medium text-slate-700 flex items-center gap-1"><MapPin size={12}/> {u.city}, {u.department}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* RATES CARD */}
+                                                    <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
+                                                        <div className="flex justify-between items-center mb-4">
+                                                            <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><DollarSign size={14}/> Tarifas Negociadas</h4>
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); setRateModal(u.id); }}
+                                                                className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded font-bold hover:bg-green-100 flex items-center gap-1 border border-green-200"
+                                                            >
+                                                                <Plus size={12}/> Nueva Tarifa
+                                                            </button>
+                                                        </div>
+                                                        
+                                                        {expandedRates.length > 0 ? (
+                                                            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                                                {expandedRates.map(rate => {
+                                                                    const client = clients.find(c => c.id === rate.clientId);
+                                                                    return (
+                                                                        <div key={rate.id} className="p-2 border rounded bg-slate-50 text-xs flex justify-between items-center hover:bg-slate-100 transition-colors">
+                                                                            <div>
+                                                                                <p className="font-bold text-slate-700">{client?.name || 'Cliente Desconocido'}</p>
+                                                                                <p className="text-slate-500">NIT: {client?.taxId}</p>
+                                                                            </div>
+                                                                            <div className="text-right">
+                                                                                <p className="font-bold text-green-600 text-sm">${(rate.value || 0).toLocaleString()}</p>
+                                                                                <p className="text-slate-400">/{rate.unit}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-center py-6 bg-slate-50 rounded border border-dashed border-slate-200">
+                                                                <p className="text-xs text-slate-400 italic">No tiene tarifas asignadas.</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
                             ))}
                         </tbody>
                     </table>
@@ -316,49 +412,22 @@ export const TeamManagement = () => {
                 </div>
             )}
 
-            {/* Modal Manage Rates */}
+            {/* Modal Add Rate Only */}
             {rateModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><DollarSign size={20}/> Tarifas del Consultor</h3>
+                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><DollarSign size={20}/> Nueva Tarifa</h3>
                             <button onClick={() => setRateModal(null)}><XCircle className="text-slate-400 hover:text-red-500"/></button>
                         </div>
                         
-                        {/* List Existing Rates */}
-                        <div className="bg-slate-50 border rounded-lg p-3 mb-6 max-h-40 overflow-y-auto">
-                            {currentRates.length > 0 ? (
-                                <ul className="space-y-2">
-                                    {currentRates.map(rate => {
-                                        const client = clients.find(c => c.id === rate.clientId);
-                                        return (
-                                            <li key={rate.id} className="flex justify-between items-center bg-white p-2 rounded border text-sm">
-                                                <div>
-                                                    <p className="font-bold text-slate-700">{client?.name || 'Cliente Desconocido'}</p>
-                                                    <p className="text-xs text-slate-500">NIT: {client?.taxId}</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="font-bold text-green-600">${rate.value.toLocaleString()}</p>
-                                                    <p className="text-xs text-slate-400">/{rate.unit}</p>
-                                                </div>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            ) : (
-                                <p className="text-xs text-slate-400 text-center py-2">No hay tarifas configuradas para este consultor.</p>
-                            )}
-                        </div>
-
-                        {/* Add New Rate Form */}
-                        <form onSubmit={handleSaveRate} className="border-t pt-4">
-                            <h4 className="text-sm font-bold text-slate-700 mb-3">Agregar Nueva Tarifa</h4>
+                        <form onSubmit={handleSaveRate}>
                             <div className="space-y-3">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 mb-1">Cliente / NIT</label>
                                     <select required className="w-full border rounded p-2 text-sm bg-white" value={rateFormData.clientId} onChange={e => setRateFormData({...rateFormData, clientId: e.target.value})}>
                                         <option value="">Seleccionar Cliente...</option>
-                                        {clients.map(c => <option key={c.id} value={c.id}>{c.name} - NIT {c.taxId}</option>)}
+                                        {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                     </select>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
@@ -371,7 +440,7 @@ export const TeamManagement = () => {
                                         <input required type="number" className="w-full border rounded p-2 text-sm" value={rateFormData.value} onChange={e => setRateFormData({...rateFormData, value: Number(e.target.value)})}/>
                                     </div>
                                 </div>
-                                <button type="submit" className="w-full py-2 bg-green-600 text-white rounded text-sm font-bold hover:bg-green-700 mt-2">
+                                <button type="submit" className="w-full py-2 bg-green-600 text-white rounded text-sm font-bold hover:bg-green-700 mt-4 shadow-md">
                                     Guardar Tarifa
                                 </button>
                             </div>

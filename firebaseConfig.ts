@@ -30,9 +30,9 @@ export const firebaseConfig = {
 };
 
 // Validación de seguridad para desarrollo
-if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("AIzaSyDSKPR_uIe8C_4ZqcenGaOZEYB15O1Z_8M")) {
-    console.warn("⚠️ ADVERTENCIA DE SEGURIDAD: Usando credenciales hardcodeadas o por defecto. Configura tu archivo .env para producción.");
-}
+// if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("AIzaSyDSKPR_uIe8C_4ZqcenGaOZEYB15O1Z_8M")) {
+//     console.warn("⚠️ ADVERTENCIA DE SEGURIDAD: Usando credenciales hardcodeadas o por defecto. Configura tu archivo .env para producción.");
+// }
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);

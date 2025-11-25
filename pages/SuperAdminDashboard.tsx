@@ -1,5 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { getTenants, updateTenant, createTenant, getGlobalUsers, toggleUserBlock, getInvoices, getPlanLimits } from '../services/dataService';
 import { 
     Building, DollarSign, Users, Activity, Settings, 
@@ -12,6 +14,7 @@ import { Tenant, User, Invoice, PlanType } from '../types';
 
 export const SuperAdminDashboard = () => {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'tenants' | 'users' | 'finance'>('dashboard');
   
   // Data State
@@ -63,15 +66,18 @@ export const SuperAdminDashboard = () => {
       });
 
       if(success) {
-          alert("Empresa creada exitosamente. Se ha enviado un correo al administrador.");
+          showToast("Empresa creada exitosamente.", "success");
           setIsCreateModalOpen(false);
           loadAllData();
+      } else {
+          showToast("Error al crear empresa.", "error");
       }
   };
 
   const handleUpdateTenant = async (id: string, updates: Partial<Tenant>) => {
       if(!confirm("¿Confirmar cambio en la empresa?")) return;
       await updateTenant(id, updates);
+      showToast("Empresa actualizada", "success");
       loadAllData();
       setEditingTenant(null);
   };
@@ -79,6 +85,7 @@ export const SuperAdminDashboard = () => {
   const handleToggleBlockUser = async (u: User) => {
       if(!confirm(`¿${u.status === 'blocked' ? 'Desbloquear' : 'Bloquear'} usuario ${u.email}?`)) return;
       await toggleUserBlock(u.id, u.status);
+      showToast(`Usuario ${u.status === 'blocked' ? 'desbloqueado' : 'bloqueado'}`, "info");
       loadAllData();
   };
 

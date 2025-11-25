@@ -1,12 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { getActivities, createActivity, getClients, getTenantUsers, assignActivity, updateActivityStatus, createActivityApproval, requestBilling, fileAccountReceivable, processPayment, getSubClients, getActivityTypes, getActivityLogs } from '../services/dataService';
 import { Plus, Search, Filter, ChevronRight, Loader2, UserPlus, CheckCircle, Upload, FileText, DollarSign, XCircle, MapPin, ClipboardList, Clock, Trash2 } from 'lucide-react';
 import { Activity, Client, User, ActivityStatus, SubClient, ActivityTypeDefinition, ActivityLog } from '../types';
 
 export const OrderManagement = () => {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [providers, setProviders] = useState<User[]>([]);
@@ -114,7 +116,7 @@ export const OrderManagement = () => {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if(!user) return;
-    await createActivity({
+    const result = await createActivity({
       clientId: formData.clientId,
       subClientId: formData.subClientId,
       activityType: formData.activityType,
@@ -127,10 +129,16 @@ export const OrderManagement = () => {
       coordinatorId: formData.coordinatorId,
       priority: formData.priority as any
     }, user);
-    setShowCreateModal(false);
-    // Reset form
-    setFormData({ clientId: '', subClientId: '', activityType: '', description: '', unit: '', quantity: 1, value: 0, contactName: '', contactPhone: '', coordinatorId: '', priority: 'medium' });
-    loadData();
+    
+    if (result) {
+        showToast("Solicitud creada exitosamente", "success");
+        setShowCreateModal(false);
+        // Reset form
+        setFormData({ clientId: '', subClientId: '', activityType: '', description: '', unit: '', quantity: 1, value: 0, contactName: '', contactPhone: '', coordinatorId: '', priority: 'medium' });
+        loadData();
+    } else {
+        showToast("Error al crear solicitud", "error");
+    }
   };
 
   const handleAssign = async () => {
@@ -138,10 +146,15 @@ export const OrderManagement = () => {
       const providerUser = providers.find(p => p.id === selectedProvider);
       if(!providerUser) return;
 
-      await assignActivity(assignModal, providerUser, allocationPct);
-      setAssignModal(null);
-      setAllocationPct(100);
-      loadData();
+      const success = await assignActivity(assignModal, providerUser, allocationPct);
+      if (success) {
+          showToast("Actividad asignada correctamente", "success");
+          setAssignModal(null);
+          setAllocationPct(100);
+          loadData();
+      } else {
+          showToast("Error al asignar actividad", "error");
+      }
   }
 
   const handleStartExecution = async () => {
@@ -153,6 +166,7 @@ export const OrderManagement = () => {
           userName: user.name,
           supports: modalFiles.length > 0 ? modalFiles.map(f => ({...f, date: new Date().toISOString()})) : undefined
       });
+      showToast("Avance registrado correctamente", "success");
       setExecuteModal(null);
       setExecFormData({ executedUnits: 0, comment: '' });
       setModalFiles([]);
@@ -169,6 +183,7 @@ export const OrderManagement = () => {
           userName: user.name,
           supports: modalFiles.length > 0 ? modalFiles.map(f => ({...f, date: new Date().toISOString()})) : undefined
       });
+      showToast("Actividad finalizada. Pendiente aprobación.", "success");
       setSupportModal(null);
       setExecFormData({ executedUnits: 0, comment: '' });
       setModalFiles([]);
@@ -178,26 +193,33 @@ export const OrderManagement = () => {
   const handleSubmitApproval = async (approved: boolean) => {
       if(!approvalModal || !user) return;
       
-      await createActivityApproval(approvalModal, user, approved, approvalComment);
-      
-      setApprovalModal(null);
-      setApprovalComment('');
-      loadData();
+      const success = await createActivityApproval(approvalModal, user, approved, approvalComment);
+      if (success) {
+          showToast(approved ? "Actividad aprobada" : "Actividad devuelta para ajustes", approved ? "success" : "warning");
+          setApprovalModal(null);
+          setApprovalComment('');
+          loadData();
+      } else {
+          showToast("Error al procesar aprobación", "error");
+      }
   }
 
   const handleRequestBilling = async (id: string) => {
       if(!user) return;
       await requestBilling(id, user.id);
+      showToast("Solicitud de facturación enviada", "success");
       loadData();
   }
 
   const handleFileReceivable = async (id: string) => {
       await fileAccountReceivable(id);
+      showToast("Cuenta de cobro radicada", "success");
       loadData();
   }
 
   const handlePayment = async (id: string, status: 'paid' | 'rejected') => {
       await processPayment(id, status);
+      showToast(status === 'paid' ? "Pago registrado" : "Pago rechazado", status === 'paid' ? "success" : "error");
       loadData();
   }
 

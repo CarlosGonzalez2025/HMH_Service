@@ -1,12 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { getActivityStates, createActivityState, getActivityTypes, createActivityType } from '../services/dataService';
 import { ActivityStateDefinition, ActivityTypeDefinition } from '../types';
 import { Loader2, Plus, XCircle, Tag, Clock, User, MessageSquare, List } from 'lucide-react';
 
 export const MastersManagement = () => {
     const { user, tenant } = useAuth();
+    const { showToast } = useToast();
     const [states, setStates] = useState<ActivityStateDefinition[]>([]);
     const [types, setTypes] = useState<ActivityTypeDefinition[]>([]);
     const [loading, setLoading] = useState(true);
@@ -48,9 +50,12 @@ export const MastersManagement = () => {
             ipUser: '127.0.0.1'
         });
         if (success) {
+            showToast("Estado creado exitosamente", "success");
             setShowStateModal(false);
             setStateFormData({ name: '', description: '', comment: '' });
             loadData();
+        } else {
+            showToast("Error al crear estado", "error");
         }
     };
 
@@ -65,9 +70,12 @@ export const MastersManagement = () => {
             ipUser: '127.0.0.1'
         });
         if (success) {
+            showToast("Tipo de actividad creado exitosamente", "success");
             setShowTypeModal(false);
             setTypeFormData({ name: '' });
             loadData();
+        } else {
+            showToast("Error al crear tipo de actividad", "error");
         }
     };
 

@@ -1,12 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { getClients, createClient, createSubClient, getSubClients, getTenantUsers, getClientContacts, createClientContact, getClientPrices, createClientPrice, getSubClientContacts, createSubClientContact } from '../services/dataService';
 import { Client, SubClient, User, ClientContact, ClientPrice, SubClientContact } from '../types';
 import { Plus, Building, MapPin, Users, ChevronDown, ChevronUp, Phone, FileText, UserCheck, Briefcase, Mail, MessageSquare, DollarSign, Calendar, Eye } from 'lucide-react';
 
 export const ClientManagement = () => {
     const { user, tenant } = useAuth();
+    const { showToast } = useToast();
     const [clients, setClients] = useState<Client[]>([]);
     const [tenantUsers, setTenantUsers] = useState<User[]>([]);
     
@@ -109,54 +111,79 @@ export const ClientManagement = () => {
     const handleSubmitClient = async (e: React.FormEvent) => {
         e.preventDefault();
         if(!user) return;
-        await createClient(formData, user);
-        setShowModal(false);
-        // Reset form
-        setFormData({ 
-            name: '', taxId: '', phone: '', address: '', 
-            department: '', city: '', hmhCoordinatorId: '', billingTerms: '' 
-        });
-        load();
+        const success = await createClient(formData, user);
+        if (success) {
+            showToast("Cliente creado exitosamente", "success");
+            setShowModal(false);
+            // Reset form
+            setFormData({ 
+                name: '', taxId: '', phone: '', address: '', 
+                department: '', city: '', hmhCoordinatorId: '', billingTerms: '' 
+            });
+            load();
+        } else {
+            showToast("Error al crear cliente", "error");
+        }
     }
 
     const handleSubmitSub = async (e: React.FormEvent) => {
         e.preventDefault();
         if(!user?.tenantId || !subModal) return;
-        await createSubClient(user.tenantId, subModal, subFormData);
-        setSubModal(null);
-        setSubFormData({ nit: '', name: '', address: '', department: '', city: '' });
-        handleExpand(subModal); // Refresh
+        const success = await createSubClient(user.tenantId, subModal, subFormData);
+        if (success) {
+            showToast("Subcliente agregado exitosamente", "success");
+            setSubModal(null);
+            setSubFormData({ nit: '', name: '', address: '', department: '', city: '' });
+            handleExpand(subModal); // Refresh
+        } else {
+            showToast("Error al agregar subcliente", "error");
+        }
     }
 
     const handleSubmitContact = async (e: React.FormEvent) => {
         e.preventDefault();
         if(!user?.tenantId || !contactModal) return;
-        await createClientContact(user.tenantId, contactModal, contactFormData);
-        setContactModal(null);
-        setContactFormData({ contactType: '', name: '', position: '', email: '', phone: '', observation: '' });
-        handleExpand(contactModal); // Refresh
+        const success = await createClientContact(user.tenantId, contactModal, contactFormData);
+        if (success) {
+            showToast("Contacto guardado exitosamente", "success");
+            setContactModal(null);
+            setContactFormData({ contactType: '', name: '', position: '', email: '', phone: '', observation: '' });
+            handleExpand(contactModal); // Refresh
+        } else {
+            showToast("Error al guardar contacto", "error");
+        }
     }
 
     const handleSubmitSubContact = async (e: React.FormEvent) => {
         e.preventDefault();
         if(!user?.tenantId || !subContactModal || !expandedClient) return;
-        await createSubClientContact(user.tenantId, expandedClient, subContactModal, contactFormData);
-        const subId = subContactModal;
-        setSubContactModal(null);
-        setContactFormData({ contactType: '', name: '', position: '', email: '', phone: '', observation: '' });
-        
-        // Refresh SubContacts
-        const contacts = await getSubClientContacts(user.tenantId, expandedClient, subId);
-        setCurrentSubContacts(contacts);
+        const success = await createSubClientContact(user.tenantId, expandedClient, subContactModal, contactFormData);
+        if (success) {
+            showToast("Contacto de subcliente guardado", "success");
+            const subId = subContactModal;
+            setSubContactModal(null);
+            setContactFormData({ contactType: '', name: '', position: '', email: '', phone: '', observation: '' });
+            
+            // Refresh SubContacts
+            const contacts = await getSubClientContacts(user.tenantId, expandedClient, subId);
+            setCurrentSubContacts(contacts);
+        } else {
+            showToast("Error al guardar contacto de subcliente", "error");
+        }
     }
 
     const handleSubmitPrice = async (e: React.FormEvent) => {
         e.preventDefault();
         if(!user?.tenantId || !priceModal) return;
-        await createClientPrice(user.tenantId, priceModal, priceFormData);
-        setPriceModal(null);
-        setPriceFormData({ unit: '', amount: 0, validFrom: '' });
-        handleExpand(priceModal); // Refresh
+        const success = await createClientPrice(user.tenantId, priceModal, priceFormData);
+        if (success) {
+            showToast("Tarifa registrada exitosamente", "success");
+            setPriceModal(null);
+            setPriceFormData({ unit: '', amount: 0, validFrom: '' });
+            handleExpand(priceModal); // Refresh
+        } else {
+            showToast("Error al registrar tarifa", "error");
+        }
     }
 
     return (
