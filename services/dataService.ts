@@ -45,9 +45,9 @@ export const getActivities = async (currentUser: User): Promise<Activity[]> => {
 
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => {
-        const data = doc.data();
-        return { 
-            ...data, 
+        const data = doc.data() as Activity;
+        return {
+            ...data,
             id: doc.id,
             requestDate: formatFirestoreDate(data.requestDate),
             requiredDate: formatFirestoreDate(data.requiredDate)
