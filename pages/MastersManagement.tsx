@@ -83,19 +83,19 @@ export const MastersManagement = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Maestros y Configuración</h1>
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Maestros y Configuración</h1>
                     <p className="text-slate-500 text-sm">Gestión de tablas maestras del sistema</p>
                 </div>
                 <div>
                     {activeTab === 'states' && (
-                        <button onClick={() => setShowStateModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm">
+                        <button onClick={() => setShowStateModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700 shadow-sm w-full sm:w-auto">
                             <Plus size={18} /> Nuevo Estado
                         </button>
                     )}
                     {activeTab === 'types' && (
-                        <button onClick={() => setShowTypeModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm">
+                        <button onClick={() => setShowTypeModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700 shadow-sm w-full sm:w-auto">
                             <Plus size={18} /> Nuevo Tipo
                         </button>
                     )}
@@ -103,19 +103,21 @@ export const MastersManagement = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b border-slate-200">
-                <button 
-                    onClick={() => setActiveTab('states')}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'states' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                >
-                    <Tag size={16}/> Estados de Actividad
-                </button>
-                <button 
-                    onClick={() => setActiveTab('types')}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'types' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                >
-                    <List size={16}/> Tipos de Actividad
-                </button>
+            <div className="flex border-b border-slate-200 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                <div className="flex min-w-max">
+                    <button
+                        onClick={() => setActiveTab('states')}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'states' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                    >
+                        <Tag size={16}/> Estados
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('types')}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'types' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                    >
+                        <List size={16}/> Tipos
+                    </button>
+                </div>
             </div>
 
             {loading ? (
@@ -124,7 +126,8 @@ export const MastersManagement = () => {
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     {/* STATES TABLE */}
                     {activeTab === 'states' && (
-                        <table className="w-full text-sm text-left">
+                        <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left min-w-[700px]">
                             <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                                 <tr>
                                     <th className="px-6 py-4">Nombre Estado</th>
@@ -151,11 +154,13 @@ export const MastersManagement = () => {
                                 )}
                             </tbody>
                         </table>
+                        </div>
                     )}
 
                     {/* TYPES TABLE */}
                     {activeTab === 'types' && (
-                        <table className="w-full text-sm text-left">
+                        <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left min-w-[700px]">
                             <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                                 <tr>
                                     <th className="px-6 py-4">ID</th>
@@ -182,6 +187,7 @@ export const MastersManagement = () => {
                                 )}
                             </tbody>
                         </table>
+                        </div>
                     )}
                 </div>
             )}

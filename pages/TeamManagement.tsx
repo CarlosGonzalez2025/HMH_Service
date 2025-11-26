@@ -194,15 +194,15 @@ export const TeamManagement = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Mi Equipo / Consultores</h1>
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Mi Equipo / Consultores</h1>
                     <p className="text-slate-500 text-sm">Gestiona el personal de {tenant.name}</p>
                 </div>
                 {['admin', 'coordinator'].includes(user.role) && (
                     <button
                         onClick={openCreateModal}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-lg shadow-blue-200"
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700 shadow-lg shadow-blue-200"
                     >
                         <Plus size={18} /> Nuevo Usuario
                     </button>
@@ -214,7 +214,8 @@ export const TeamManagement = () => {
                 {loading ? (
                     <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-slate-400"/></div>
                 ) : (
-                    <table className="w-full text-sm text-left">
+                    <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left min-w-[900px]">
                         <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                             <tr>
                                 <th className="px-6 py-4">Usuario</th>
@@ -367,13 +368,14 @@ export const TeamManagement = () => {
                             ))}
                         </tbody>
                     </table>
+                    </div>
                 )}
             </div>
 
             {/* Modal Create/Edit User */}
             {showModal && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto my-8">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-lg font-bold text-slate-800">
                                 {isEditing ? 'Editar Colaborador' : 'Registrar Nuevo Colaborador'}
