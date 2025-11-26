@@ -293,13 +293,13 @@ export const OrderManagement = () => {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">{pageTitle}</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-800">{pageTitle}</h2>
           <p className="text-slate-500 text-sm">{pageSubtitle}</p>
         </div>
         {!isBillingView && ['analyst', 'coordinator', 'admin'].includes(user.role) && (
-            <button onClick={() => setShowCreateModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm">
+            <button onClick={() => setShowCreateModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700 shadow-sm">
             <Plus size={18} /> Nueva Solicitud
             </button>
         )}
@@ -307,19 +307,21 @@ export const OrderManagement = () => {
 
       {/* Provider Tabs */}
       {isProvider && (
-          <div className="flex border-b border-slate-200 mb-6">
-              <button 
-                  onClick={() => setActiveTab('activities')}
-                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'activities' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-              >
-                  <ClipboardList size={16}/> Actividades
-              </button>
-              <button 
-                  onClick={() => setActiveTab('billing')}
-                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'billing' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-              >
-                  <Receipt size={16}/> Cuentas de Cobro
-              </button>
+          <div className="flex border-b border-slate-200 mb-6 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="flex min-w-max">
+                  <button
+                      onClick={() => setActiveTab('activities')}
+                      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'activities' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                  >
+                      <ClipboardList size={16}/> Actividades
+                  </button>
+                  <button
+                      onClick={() => setActiveTab('billing')}
+                      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'billing' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                  >
+                      <Receipt size={16}/> Cuentas de Cobro
+                  </button>
+              </div>
           </div>
       )}
 
@@ -329,7 +331,8 @@ export const OrderManagement = () => {
             {isLoading ? (
                 <div className="flex items-center justify-center h-40 text-slate-500 gap-2"><Loader2 className="animate-spin"/> Cargando...</div>
             ) : (
-                <table className="w-full text-left text-sm">
+                <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm min-w-[1000px]">
                 <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                     <tr>
                         <th className="px-6 py-4">ID / Tipo</th>
@@ -442,6 +445,7 @@ export const OrderManagement = () => {
                     )}
                 </tbody>
                 </table>
+                </div>
             )}
           </div>
       )}

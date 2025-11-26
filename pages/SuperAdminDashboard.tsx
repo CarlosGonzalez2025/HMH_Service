@@ -190,18 +190,19 @@ export const SuperAdminDashboard = () => {
 
   const renderTenants = () => (
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+          <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center bg-slate-50">
               <div className="flex gap-2">
-                 <div className="relative">
+                 <div className="relative flex-1 sm:flex-initial">
                     <Search className="absolute left-2.5 top-2.5 text-slate-400 w-4 h-4"/>
-                    <input type="text" placeholder="Buscar Empresa..." className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 w-64"/>
+                    <input type="text" placeholder="Buscar..." className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 w-full sm:w-64"/>
                  </div>
               </div>
-              <button onClick={() => setIsCreateModalOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700 shadow-sm">
-                  <Plus size={16}/> Nueva Empresa
+              <button onClick={() => setIsCreateModalOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-blue-700 shadow-sm">
+                  <Plus size={16}/> <span className="hidden sm:inline">Nueva Empresa</span><span className="sm:hidden">Nueva</span>
               </button>
           </div>
-          <table className="w-full text-sm text-left">
+          <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left min-w-[800px]">
               <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
                   <tr>
                       <th className="px-6 py-3">Empresa / NIT</th>
@@ -286,24 +287,26 @@ export const SuperAdminDashboard = () => {
                   })}
               </tbody>
           </table>
+          </div>
       </div>
   );
 
   const renderUsers = () => (
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+          <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center bg-slate-50">
               <div>
-                  <h3 className="font-bold text-slate-700">Usuarios Globales</h3>
-                  <p className="text-xs text-slate-500">Gestión centralizada de accesos de todos los tenants</p>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-700">Usuarios Globales</h3>
+                  <p className="text-xs text-slate-500">Gestión centralizada de accesos</p>
               </div>
               <button
                   onClick={() => setIsCreateUserModalOpen(true)}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-green-700 shadow-sm"
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-green-700 shadow-sm"
               >
-                  <UserPlus size={16}/> Nuevo Usuario
+                  <UserPlus size={16}/> <span className="hidden sm:inline">Nuevo Usuario</span><span className="sm:hidden">Nuevo</span>
               </button>
           </div>
-          <table className="w-full text-sm text-left">
+          <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left min-w-[700px]">
               <thead className="text-xs text-slate-500 uppercase bg-slate-50">
                   <tr>
                       <th className="px-6 py-3">Usuario</th>
@@ -359,6 +362,7 @@ export const SuperAdminDashboard = () => {
                   })}
               </tbody>
           </table>
+          </div>
       </div>
   );
 
@@ -372,9 +376,10 @@ export const SuperAdminDashboard = () => {
 
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="p-4 border-b border-slate-200">
-                  <h3 className="font-bold text-slate-700">Historial de Facturas</h3>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-700">Historial de Facturas</h3>
               </div>
-              <table className="w-full text-sm text-left">
+              <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left min-w-[700px]">
                   <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
                       <tr>
                           <th className="px-6 py-3">ID Factura</th>
@@ -406,6 +411,7 @@ export const SuperAdminDashboard = () => {
                       ))}
                   </tbody>
               </table>
+              </div>
           </div>
       </div>
   );
@@ -416,36 +422,38 @@ export const SuperAdminDashboard = () => {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Super Admin Console</h1>
-        <p className="text-slate-500">Gestión centralizada de la plataforma SaaS</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Super Admin Console</h1>
+        <p className="text-sm sm:text-base text-slate-500">Gestión centralizada de la plataforma SaaS</p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-slate-200 mb-6 space-x-6">
-          <button 
-             onClick={() => setActiveTab('dashboard')}
-             className={`pb-3 text-sm font-medium transition-colors border-b-2 ${activeTab === 'dashboard' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-          >
-              Dashboard
-          </button>
-          <button 
-             onClick={() => setActiveTab('tenants')}
-             className={`pb-3 text-sm font-medium transition-colors border-b-2 ${activeTab === 'tenants' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-          >
-              Empresas (Tenants)
-          </button>
-          <button 
-             onClick={() => setActiveTab('users')}
-             className={`pb-3 text-sm font-medium transition-colors border-b-2 ${activeTab === 'users' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-          >
-              Usuarios Globales
-          </button>
-          <button 
-             onClick={() => setActiveTab('finance')}
-             className={`pb-3 text-sm font-medium transition-colors border-b-2 ${activeTab === 'finance' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-          >
-              Finanzas
-          </button>
+      {/* Tabs - Scrollable on mobile */}
+      <div className="flex border-b border-slate-200 mb-6 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="flex space-x-4 sm:space-x-6 min-w-max">
+              <button
+                 onClick={() => setActiveTab('dashboard')}
+                 className={`pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'dashboard' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              >
+                  Dashboard
+              </button>
+              <button
+                 onClick={() => setActiveTab('tenants')}
+                 className={`pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'tenants' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              >
+                  Empresas
+              </button>
+              <button
+                 onClick={() => setActiveTab('users')}
+                 className={`pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'users' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              >
+                  Usuarios
+              </button>
+              <button
+                 onClick={() => setActiveTab('finance')}
+                 className={`pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'finance' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              >
+                  Finanzas
+              </button>
+          </div>
       </div>
 
       {/* Content */}
@@ -458,14 +466,14 @@ export const SuperAdminDashboard = () => {
 
       {/* Create Tenant Modal */}
       {isCreateModalOpen && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
-                  <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Building size={20}/> Registrar Nueva Empresa</h3>
-                      <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600"><XCircle/></button>
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+              <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-4 sm:p-6 my-8">
+                  <div className="flex justify-between items-center mb-4 sm:mb-6">
+                      <h3 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2"><Building size={18} className="sm:w-5 sm:h-5"/> Nueva Empresa</h3>
+                      <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600"><XCircle size={20}/></button>
                   </div>
                   <form onSubmit={handleCreateTenant} className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                               <label className="block text-xs font-bold text-slate-600 mb-1">Razón Social</label>
                               <input required type="text" className="w-full border rounded p-2 text-sm" value={newTenant.name} onChange={e => setNewTenant({...newTenant, name: e.target.value})} placeholder="Ej: Acme Corp"/>
@@ -501,11 +509,11 @@ export const SuperAdminDashboard = () => {
 
       {/* Create User Modal */}
       {isCreateUserModalOpen && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-                  <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><UserPlus size={20}/> Crear Nuevo Usuario</h3>
-                      <button onClick={() => setIsCreateUserModalOpen(false)} className="text-slate-400 hover:text-slate-600"><XCircle/></button>
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+              <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-4 sm:p-6 my-8">
+                  <div className="flex justify-between items-center mb-4 sm:mb-6">
+                      <h3 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2"><UserPlus size={18} className="sm:w-5 sm:h-5"/> Nuevo Usuario</h3>
+                      <button onClick={() => setIsCreateUserModalOpen(false)} className="text-slate-400 hover:text-slate-600"><XCircle size={20}/></button>
                   </div>
                   <form onSubmit={handleCreateGlobalUser} className="space-y-4">
                       <div>

@@ -188,13 +188,13 @@ export const ClientManagement = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Gestión de Clientes</h1>
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Gestión de Clientes</h1>
                     <p className="text-slate-500 text-sm">Base de datos de Clientes y Subclientes</p>
                 </div>
                 {['admin', 'coordinator', 'analyst'].includes(user.role) && (
-                    <button onClick={() => setShowModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm">
+                    <button onClick={() => setShowModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700 shadow-sm">
                         <Plus size={18}/> Nuevo Cliente
                     </button>
                 )}
