@@ -1,6 +1,7 @@
 
-import { db, auth, firebaseConfig } from '../firebaseConfig';
+import { db, auth, firebaseConfig, storage } from '../firebaseConfig';
 import { collection, query, where, getDocs, addDoc, doc, updateDoc, setDoc, getFirestore, getDoc, orderBy } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut, signInWithEmailAndPassword } from 'firebase/auth';
 import { Activity, Client, Tenant, User, ActivityStatus, PlanType, Invoice, UserRole, SubClient, ServiceOrder, ClientContact, ClientPrice, SubClientContact, ConsultantRate, ActivityStateDefinition, ActivityTypeDefinition, ActivityAssignment, ActivityLog, ActivityApproval, BillingAccount } from '../types';
@@ -595,10 +596,10 @@ export const updateUserProfile = async (userId: string, data: Partial<User>): Pr
         // Filter out fields that shouldn't be updated directly or don't exist
         // In a real scenario, you'd sanitize this more.
         const updateData = { ...data };
-        
+
         // Remove undefined values to prevent Firestore errors
         Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
-        
+
         // Remove protected fields
         delete (updateData as any).id;
         delete (updateData as any).email;
@@ -609,6 +610,36 @@ export const updateUserProfile = async (userId: string, data: Partial<User>): Pr
     } catch (error) {
         console.error("Error updating user profile:", error);
         return false;
+    }
+};
+
+// NEW SERVICE: Upload Profile Photo to Firebase Storage
+export const uploadProfilePhoto = async (userId: string, file: File): Promise<string | null> => {
+    try {
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            throw new Error('La imagen debe ser menor a 5MB');
+        }
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            throw new Error('El archivo debe ser una imagen');
+        }
+
+        // Create reference to storage location
+        const fileExtension = file.name.split('.').pop() || 'jpg';
+        const storageRef = ref(storage, `users/${userId}/profile.${fileExtension}`);
+
+        // Upload file
+        await uploadBytes(storageRef, file);
+
+        // Get download URL
+        const downloadURL = await getDownloadURL(storageRef);
+
+        return downloadURL;
+    } catch (error) {
+        console.error("Error uploading profile photo:", error);
+        return null;
     }
 };
 

@@ -1,0 +1,38 @@
+rules_version = '2';
+
+// Firebase Storage Security Rules
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // User profile photos
+    // Allow users to upload, read, update, and delete their own profile photo
+    match /users/{userId}/profile.{imageExtension} {
+      allow read: if true; // Anyone can view profile photos
+      allow write: if request.auth != null && request.auth.uid == userId
+                   && request.resource.size < 5 * 1024 * 1024 // Max 5MB
+                   && request.resource.contentType.matches('image/.*'); // Only images
+    }
+
+    // Company logos (for tenants)
+    // Allow admins and superAdmins to upload company logos
+    match /tenants/{tenantId}/logo.{imageExtension} {
+      allow read: if true; // Anyone can view company logos
+      allow write: if request.auth != null
+                   && request.resource.size < 5 * 1024 * 1024 // Max 5MB
+                   && request.resource.contentType.matches('image/.*'); // Only images
+    }
+
+    // Activity supports/documents
+    // Allow authenticated users within the same tenant to upload activity documents
+    match /activities/{activityId}/supports/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.resource.size < 10 * 1024 * 1024; // Max 10MB for documents
+    }
+
+    // Default: Deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
