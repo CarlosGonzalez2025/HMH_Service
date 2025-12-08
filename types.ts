@@ -52,7 +52,8 @@ export interface User {
   role: UserRole; // ROL
   name: string; // NombreApellidos
   status: 'active' | 'inactive' | 'blocked';
-  
+  photoURL?: string | null; // Foto de perfil
+
   // Provider / Consultant Specific Fields
   documentType?: string; // TipoDocumento
   documentNumber?: string; // NumeroDocumento
@@ -64,8 +65,8 @@ export interface User {
   department?: string; // Departamento
   city?: string; // Municipio
   phone?: string; // Telefono
-  hourlyRate?: number; 
-  
+  hourlyRate?: number;
+
   // Audit
   createdAt?: string; // FechaCreacion
   updatedAt?: string; // FechaModificacion
