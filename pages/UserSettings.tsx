@@ -7,7 +7,7 @@ import {
   User, Mail, Phone, MapPin, Briefcase, Lock,
   Camera, Save, X, Shield, Building, FileText
 } from 'lucide-react';
-import { updateUserProfile } from '../services/dataService';
+import { updateUserProfile, uploadProfilePhoto } from '../services/dataService';
 import { auth } from '../firebaseConfig';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 
@@ -112,15 +112,23 @@ export const UserSettings = () => {
     }
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // Simulación de carga (en producción, subir a Firebase Storage)
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfileForm({ ...profileForm, photoURL: reader.result as string });
-      };
-      reader.readAsDataURL(file);
+    if (file && user) {
+      setIsSaving(true);
+      try {
+        const photoURL = await uploadProfilePhoto(user.id, file);
+        if (photoURL) {
+          setProfileForm({ ...profileForm, photoURL });
+          showToast('Foto de perfil cargada exitosamente', 'success');
+        } else {
+          showToast('Error al cargar la foto de perfil', 'error');
+        }
+      } catch (error: any) {
+        showToast(error.message || 'Error al cargar la foto de perfil', 'error');
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
