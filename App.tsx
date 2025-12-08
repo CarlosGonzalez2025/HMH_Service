@@ -11,6 +11,7 @@ import { OrderManagement } from './pages/OrderManagement';
 import { TeamManagement } from './pages/TeamManagement';
 import { ClientManagement } from './pages/ClientManagement';
 import { MastersManagement } from './pages/MastersManagement';
+import { UserSettings } from './pages/UserSettings';
 import { UserRole } from './types';
 
 const PrivateRoute = ({ children }: { children?: React.ReactNode }) => {
@@ -36,6 +37,7 @@ const AppContent = () => {
             <Layout>
               <Routes>
                 <Route path="/" element={<RoleBasedDashboard />} />
+                <Route path="/settings" element={<UserSettings />} />
                 <Route path="/orders" element={<OrderManagement />} />
                 <Route path="/billing" element={<OrderManagement />} /> {/* Reuses component with filter */}
                 <Route path="/clients" element={<ClientManagement />} />
