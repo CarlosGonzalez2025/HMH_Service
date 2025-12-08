@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, LayoutDashboard, Briefcase, Users, Settings, Activity as ActivityIcon, Building2, FileText, UserPlus, Database, Menu, X } from 'lucide-react';
+import { LogOut, LayoutDashboard, Briefcase, Users, Settings, Activity as ActivityIcon, Building2, FileText, UserPlus, Database, Menu, X, User as UserIcon } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { Avatar } from './Avatar';
 
 export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const { user, tenant, logout } = useAuth();
@@ -16,7 +17,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
       return [
         { label: 'SaaS Dashboard', icon: <LayoutDashboard size={20} />, path: '/' },
         { label: 'Empresas', icon: <Building2 size={20} />, path: '/tenants' },
-        { label: 'Global Settings', icon: <Settings size={20} />, path: '/settings' },
       ];
     }
 
@@ -50,6 +50,9 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     if (['admin'].includes(user.role)) {
         items.push({ label: 'Config. / Maestros', icon: <Database size={20} />, path: '/masters' });
     }
+
+    // Settings for all users
+    items.push({ label: 'Mi Perfil', icon: <UserIcon size={20} />, path: '/settings' });
 
     return items;
   };
@@ -114,15 +117,22 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
         </nav>
 
         <div className="p-4 border-t border-slate-700">
-          <div className="flex items-center gap-3 mb-4 px-2">
-            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-sm font-bold">
-              {displayInitial}
+          <Link
+            to="/settings"
+            onClick={closeMobileMenu}
+            className="flex items-center gap-3 mb-4 px-2 py-2 rounded-lg hover:bg-slate-800 transition-colors group"
+          >
+            <Avatar
+              src={user.photoURL}
+              name={user.name}
+              size="md"
+              showOnlineIndicator
+            />
+            <div className="overflow-hidden flex-1">
+              <p className="text-sm font-medium truncate group-hover:text-white">{displayName}</p>
+              <p className="text-xs text-slate-400 truncate">Ver perfil</p>
             </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-medium truncate">{displayName}</p>
-              <p className="text-xs text-slate-400 truncate">{user.email}</p>
-            </div>
-          </div>
+          </Link>
           <button
             onClick={logout}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-slate-800 rounded-lg transition-colors"
